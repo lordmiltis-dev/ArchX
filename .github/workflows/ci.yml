@@ -1,0 +1,45 @@
+name: CI
+ 
+on:
+  push:
+  pull_request:
+ 
+jobs:
+  kotlin:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: master
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew build
+ 
+  cpp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Werkzeuge installieren
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build libusb-1.0-0-dev
+      - name: Konfigurieren
+        run: cmake -S native -B build -G Ninja
+      - name: Bauen
+        run: cmake --build build
+      - name: Testen
+        run: ctest --test-dir build --output-on-failure
+ 
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: interpreter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build
+      - run: cargo test
+ 
