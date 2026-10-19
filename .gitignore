@@ -1,0 +1,48 @@
+# ----------foreign Content----------
+# Onyx-Fixture-Library, DyLOS-Content, echte Onyx-Showfiles usw.
+/local-data/
+
+# ---------- local Config ----------
+.env
+local.properties
+
+# ---------- JetBrains-IDEs (IntelliJ, CLion, RustRover) ----------
+.idea/
+*.iml
+cmake-build-*/
+
+# ---------- Kotlin / Gradle ----------
+.gradle/
+build/
+out/
+*.class
+# Wrapper muss ins Repo, trotz allgemeiner Regeln:
+!gradle/wrapper/gradle-wrapper.jar
+
+# ---------- C++ / CMake ----------
+CMakeUserPresets.json
+CMakeFiles/
+CMakeCache.txt
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.dylib
+*.exe
+
+# ---------- Rust ----------
+target/
+# Cargo.lock bleibt im Repo (Interpreter ist ein Programm)
+
+# ---------- Python (Reverse-Engineering-Skripte) ----------
+__pycache__/
+*.pyc
+.venv/
+
+# ---------- Generierter Code (entsteht beim Build aus schema/) ----------
+generated/
+
+# ---------- Betriebssystem ----------
+.DS_Store
+Thumbs.db
