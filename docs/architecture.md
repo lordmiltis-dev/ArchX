@@ -19,7 +19,7 @@ ArchX besteht aus einem Master, der den gesamten Showfile-Zustand im RAM hält, 
 | Fixtures-Library-Submaster | C++ | Verwaltet Scheinwerferprofile, primär die Onyx-Library, weitere per Extension |
 | Savefile-Interpreter | Rust | Importiert Showfiles nach `.archx`, sichert den Master-Zustand periodisch und exportiert über Export-Extensions |
 
-Die Sprachwahl ist in [ADR 0001](adr/0001-sprachen.md) begründet.
+Die Sprachwahl ist in [ADR 0001](adr/001-sprachen.md) begründet.
 
 ## Signalwege
 
