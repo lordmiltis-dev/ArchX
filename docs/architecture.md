@@ -49,6 +49,6 @@ Der Savefile-Interpreter liest den Master-Zustand periodisch aus, ohne ihn zu ve
 
 ## Weiterführend
 
-- [ADR 0001: Programmiersprachen](adr/0001-sprachen.md)
-- [ADR 0002: Lizenz](adr/0002-lizenz.md)
-- [ADR 0003: Schema-Format](adr/0003-ipc-format.md)
+- [ADR 0001: Programmiersprachen](adr/001-sprachen.md)
+- [ADR 0002: Lizenz](adr/002-lizenz.md)
+- [ADR 0003: Schema-Format](adr/003-ipc-format.md)
