@@ -1,0 +1,4 @@
+* text=auto
+*.archx binary
+*.bin binary
+*.proto text eol=lf
