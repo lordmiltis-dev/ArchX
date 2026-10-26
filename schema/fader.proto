@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package archx;
+
+option java_package = "dev.archx.schema";
+option java_multiple_files = true;
+
+message FaderMoved {
+  uint32 fader_id = 1;
+  float  value    = 2;  // 0.0 bis 1.0
+  bool   touched  = 3;
+}
