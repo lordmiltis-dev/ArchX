@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package archx;
+
+option java_package = "dev.archx.schema";
+option java_multiple_files = true;
+
+// Das gesamte Showfile (Stand Phase 1: nur Patch)
+message Showfile {
+  string name = 1;                          // Name der Show
+  repeated FixtureType fixture_types = 2;   // Alle Fixture-Typen, die diese Show benutzt (Kopie aus der Library)
+  repeated PatchEntry patch = 3;            // Die Patch-Liste
+  uint32 next_patch_id = 4;                 // Nächste freie interne ID
+}
+
+// Ein Eintrag der Patch-Liste = ein Fixture auf der Bühne
+message PatchEntry {
+  uint32 id = 1;               // Interne ID für den Master. Eindeutig und nie wiederverwendet
+  uint32 fixture_number = 2;   // Nummer, die der Nutzer sieht und eintippt (Spalte "ID" in Onyx), änderbar
+  string name = 3;             // Name des Patches
+  uint32 fixture_type_id = 4;  // Verweis auf FixtureType.id in dieser Show
+  uint32 universe = 5;         // Internes Universum, ab 1. 0 bedeutet: nicht gepatcht
+  uint32 address = 6;          // Startadresse im Universum, 1 bis 512. 0 bedeutet: nicht gepatcht
+  bool virtual_dimmer = 7;     // true: Der Master berechnet die Helligkeit über die Farbkanäle
+  bool invert_pan = 8;         // Pan umkehren
+  bool invert_tilt = 9;        // Tilt umkehren
+  repeated SubFixtureSettings sub_fixtures = 10;  // Einstellungen einzelner Zellen, nur für abweichende Werte
+}
+
+// Einstellungen einer einzelnen Zelle eines Patches (z.B. ein Kopf eines Multi-Moving-Heads)
+message SubFixtureSettings {
+  uint32 index = 1;            // Nummer der Zelle, ab 1 (passt zu SubFixtureDef.index)
+  bool invert_pan = 2;
+  bool invert_tilt = 3;
+}
+
+// Beschreibt einen Fixture-Typ in einem bestimmten Modus
+message FixtureType {
+  uint32 id = 1;                 // ID innerhalb dieser Show
+  string manufacturer = 2;       // Hersteller
+  string name = 3;               // Name des Fixtures in der Library
+  string mode_name = 4;          // Name des Modus, z.B. "16 Kanal"
+  string library_key = 5;        // Schlüssel in der Library, für einen späteren Abgleich
+  uint32 channel_count = 6;      // Anzahl der DMX-Kanäle, die dieser Modus belegt
+  repeated ChannelDef channels = 7;          // Gemeinsame Kanäle des ganzen Fixtures (Pan, Tilt, Dimmer, Strobe ...)
+  repeated SubFixtureDef sub_fixtures = 8;   // Einzeln steuerbare Zellen (z.B. LED-Leiste), leer bei normalen Fixtures
+}
+
+// Ein Kanal und wofür er genutzt wird
+message ChannelDef {
+  uint32 offset = 1;          // Position vom Anfang des ganzen Fixtures, ab 1 (auch bei Kanälen einer Zelle)
+  Attribute attribute = 2;    // Wofür der Kanal da ist
+  uint32 fine_offset = 3;     // Zweiter Kanal für 16 Bit (z.B. Pan fein). 0 bedeutet: keiner
+}
+
+// Eine einzeln steuerbare Zelle eines Fixtures (z.B. ein Segment einer LED-Leiste)
+message SubFixtureDef {
+  uint32 index = 1;                  // Nummer der Zelle im Fixture, ab 1
+  string name = 2;                   // Name der Zelle
+  repeated ChannelDef channels = 3;  // Kanäle dieser Zelle (z.B. Rot, Grün, Blau; bei Moving-Head-Zellen auch Pan und Tilt)
+  float pos_x = 4;                   // Lage der Zelle im Fixture, für das Pixel-Mapping
+  float pos_y = 5;
+}
+
+// Funktionen, die ein Kanal haben kann
+enum Attribute {
+  ATTRIBUTE_UNSPECIFIED = 0;
+  ATTRIBUTE_INTENSITY = 1;
+  ATTRIBUTE_RED = 2;
+  ATTRIBUTE_GREEN = 3;
+  ATTRIBUTE_BLUE = 4;
+  ATTRIBUTE_WHITE = 5;
+  ATTRIBUTE_AMBER = 6;
+  ATTRIBUTE_UV = 7;
+  ATTRIBUTE_PAN = 8;
+  ATTRIBUTE_TILT = 9;
+  ATTRIBUTE_COLOR_WHEEL = 10;
+  ATTRIBUTE_GOBO = 11;
+  ATTRIBUTE_ZOOM = 12;
+  ATTRIBUTE_FOCUS = 13;
+  ATTRIBUTE_IRIS = 14;
+  ATTRIBUTE_STROBE = 15;
+  ATTRIBUTE_SPEED = 16;
+  ATTRIBUTE_CONTROL = 17;
+  ATTRIBUTE_OTHER = 18;
+}
