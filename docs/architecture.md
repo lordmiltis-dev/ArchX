@@ -4,7 +4,7 @@ Stand: 2026-10-20
 
 ArchX besteht aus einem Master, der den gesamten Showfile-Zustand im RAM hält, und spezialisierten Submastern. Alles Hardware-Spezifische, jedes Dateiformat und jede Fixture-Library wird über Extensions angebunden.
 
-![ArchX Architektur](img/archx-architektur.png)
+![ArchX Architektur](img/ArchX-Architektur.png)
 
 ## Komponenten
 
