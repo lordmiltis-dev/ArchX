@@ -40,10 +40,12 @@ message FixtureType {
   string manufacturer = 2;       // Hersteller
   string name = 3;               // Name des Fixtures in der Library
   string mode_name = 4;          // Name des Modus, z.B. "16 Kanal"
-  string library_key = 5;        // Schlüssel in der Library, für einen späteren Abgleich
+  string library_key = 5;        // Schlüssel des Profils innerhalb der Library (zusammen mit library_source eindeutig)
   uint32 channel_count = 6;      // Anzahl der DMX-Kanäle, die dieser Modus belegt
   repeated ChannelDef channels = 7;          // Gemeinsame Kanäle des ganzen Fixtures (Pan, Tilt, Dimmer, Strobe ...)
   repeated SubFixtureDef sub_fixtures = 8;   // Einzeln steuerbare Zellen (z.B. LED-Leiste), leer bei normalen Fixtures
+  string library_source = 9;     // Welche Library bzw. Library-Extension das Profil lieferte (z.B. "onyx")
+  string library_revision = 10;  // Stand des Profils in der Library (Version oder Prüfsumme), um Änderungen zu erkennen
 }
 
 // Ein Kanal und wofür er genutzt wird
@@ -51,6 +53,11 @@ message ChannelDef {
   uint32 offset = 1;          // Position vom Anfang des ganzen Fixtures, ab 1 (auch bei Kanälen einer Zelle)
   Attribute attribute = 2;    // Wofür der Kanal da ist
   uint32 fine_offset = 3;     // Zweiter Kanal für 16 Bit (z.B. Pan fein). 0 bedeutet: keiner
+  string name = 4;            // Name des Kanals laut Library, z.B. "Pan" oder "Frame 2A"
+  uint32 default_value = 5;   // Wert, den der Kanal ausgibt, wenn nichts gesteuert wird (z.B. Pan/Tilt in der Mitte). 0 = nicht gesetzt.
+                              // In der Auflösung des Kanals: 8 Bit = 0 bis 255, mit Fine-Kanal 16 Bit = 0 bis 65535
+  uint32 highlight_value = 6; // Wert für "Highlight" (Fixture sichtbar machen). 0 = nicht gesetzt, gleiche Auflösung wie default_value
+  Precedence precedence = 7;  // Wie mehrere Quellen für diesen Kanal zusammengeführt werden
 }
 
 // Eine einzeln steuerbare Zelle eines Fixtures (z.B. ein Segment einer LED-Leiste)
@@ -83,4 +90,24 @@ enum Attribute {
   ATTRIBUTE_SPEED = 16;
   ATTRIBUTE_CONTROL = 17;
   ATTRIBUTE_OTHER = 18;
+  ATTRIBUTE_CYAN = 19;
+  ATTRIBUTE_MAGENTA = 20;
+  ATTRIBUTE_YELLOW = 21;
+  ATTRIBUTE_COLOR_TEMPERATURE = 22;
+  ATTRIBUTE_PAN_TILT_SPEED = 23;
+  ATTRIBUTE_PRISM = 24;
+  ATTRIBUTE_PRISM_ROTATION = 25;
+  ATTRIBUTE_FROST = 26;
+  ATTRIBUTE_GOBO_ROTATION = 27;
+  ATTRIBUTE_EFFECT = 28;
+  ATTRIBUTE_SOUND_SENSITIVITY = 29;
+  ATTRIBUTE_FRAMING_BLADE = 30;
+  ATTRIBUTE_FRAMING_ROTATION = 31;
+}
+
+// Wie der Master mehrere Quellen für einen Kanal zusammenführt
+enum Precedence {
+  PRECEDENCE_UNSPECIFIED = 0;  // Standard je nach Attribut (Intensität: HTP, sonst LTP)
+  PRECEDENCE_HTP = 1;          // Highest Takes Precedence: der höchste Wert gewinnt
+  PRECEDENCE_LTP = 2;          // Latest Takes Precedence: der zuletzt gesetzte Wert gewinnt
 }

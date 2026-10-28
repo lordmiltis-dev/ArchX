@@ -1,5 +1,6 @@
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
+
 import dev.archx.schema.FaderMoved
 import dev.archx.schema.faderMoved
 import java.io.File
@@ -25,4 +26,8 @@ fun main() {
     // Zur Kontrolle wieder einlesen
     val back = FaderMoved.parseFrom(bytes)
     print(back)
+
+    SnapshotCurrentState().exportToBinary()
+    println("Current Show: "+SnapshotCurrentState().currentShow.toString())
+    println("Current Patch: "+SnapshotCurrentState().currentPatch.toString())
 }
