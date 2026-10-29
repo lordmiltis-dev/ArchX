@@ -7,7 +7,7 @@ import dev.archx.schema.copy
 import dev.archx.schema.showfile
 import dev.archx.schema.Precedence
 
-open class ShowBuilder(private val showName: String = "Neue Show"): PatchBuilderHelper() {
+open class ShowBuilder(private var showName: String = "Neue Show"): PatchBuilderHelper() {
     val fixtureTypesList = mutableListOf<FixtureType>();
     val patchList = mutableListOf<PatchEntry>();
     var typeIdCounter = 1
@@ -61,6 +61,16 @@ open class ShowBuilder(private val showName: String = "Neue Show"): PatchBuilder
         fixtureTypes += fixtureTypesList
         patch += patchList
         nextPatchId = patchIdCounter     // der Zähler heißt absichtlich anders als das Feld
+    }
+
+    fun load(show: Showfile) {
+        fixtureTypesList.clear()
+        patchList.clear()
+        fixtureTypesList += show.fixtureTypesList
+        patchList += show.patchList
+        typeIdCounter = (show.fixtureTypesList.maxOfOrNull { it.id } ?: 0) + 1
+        patchIdCounter = maxOf(show.nextPatchId, (show.patchList.maxOfOrNull { it.id } ?: 0) + 1)
+        showName = show.name
     }
 
 

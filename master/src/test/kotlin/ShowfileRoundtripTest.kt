@@ -1,6 +1,7 @@
 import dev.archx.schema.Attribute
 import dev.archx.schema.FixtureType
 import dev.archx.schema.Showfile
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -92,5 +93,22 @@ class ShowfileRoundtripTest: ShowBuilder() {
         assertFailsWith<IllegalArgumentException> {
             ShowBuilder().patchFixture("Zu weit hinten", 1, type, patchUniverse = 1, patchAddress = 510)
         }
+    }
+    @Test
+    fun goldenFileIsUpToDate() {
+        val golden = Showfile.parseFrom(File("../schema/testdata/showfile_example.bin").readBytes())
+        assertEquals(ExampleShow().exampleShow(), golden)
+    }
+
+    @Test
+    fun loadedShowContinuesWithFreshIds() {
+        val builder = ShowBuilder()
+        builder.load(ExampleShow().exampleShow())
+
+        val type = builder.getShow().fixtureTypesList[0]
+        val entry = builder.patchFixture("Par 3", 3, type, patchUniverse = 1, patchAddress = 13)
+
+        assertEquals(3, entry.id)                        // 1 und 2 waren schon vergeben
+        assertEquals(1, builder.getShow().fixtureTypesCount)   // der Typ wird nicht doppelt angelegt
     }
 }
