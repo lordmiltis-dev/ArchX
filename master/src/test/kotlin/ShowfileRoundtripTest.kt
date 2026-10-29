@@ -44,7 +44,7 @@ class ShowfileRoundtripTest: ShowBuilder() {
     // Bytes schreiben und wieder lesen ergibt dasselbe Showfile
     @Test
     fun showfileSurvivesSerialization() {
-        val original = exampleShow()
+        val original = ExampleShow().exampleShow()
         val restored = Showfile.parseFrom(original.toByteArray())
         assertEquals(original, restored)
     }
@@ -52,7 +52,7 @@ class ShowfileRoundtripTest: ShowBuilder() {
     // Zwei gleiche Fixtures teilen sich einen Typ
     @Test
     fun twoPatchesShareOneType() {
-        val show = exampleShow()
+        val show = ExampleShow().exampleShow()
         assertEquals(1, show.fixtureTypesCount)
         assertEquals(2, show.patchCount)
         assertEquals(show.patchList[0].fixtureTypeId, show.patchList[1].fixtureTypeId)
@@ -88,7 +88,7 @@ class ShowfileRoundtripTest: ShowBuilder() {
     // Ein Fixture mit 6 Kanälen darf nicht bei Adresse 510 beginnen
     @Test
     fun fixtureMustNotExceedUniverse() {
-        val type = exampleShow().fixtureTypesList[0]
+        val type = ExampleShow().exampleShow().fixtureTypesList[0]
         assertFailsWith<IllegalArgumentException> {
             ShowBuilder().patchFixture("Zu weit hinten", 1, type, patchUniverse = 1, patchAddress = 510)
         }

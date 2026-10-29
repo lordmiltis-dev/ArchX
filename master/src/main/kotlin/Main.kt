@@ -27,7 +27,5 @@ fun main() {
     val back = FaderMoved.parseFrom(bytes)
     print(back)
 
-    SnapshotCurrentState().exportToBinary()
-    println("Current Show: "+SnapshotCurrentState().currentShow.toString())
-    println("Current Patch: "+SnapshotCurrentState().currentPatch.toString())
+
 }
