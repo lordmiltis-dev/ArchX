@@ -39,13 +39,12 @@ open class ShowBuilder(private var showName: String = "Neue Show"): PatchBuilder
         subSettings: List<SubFixtureSettings> = emptyList()
     ): PatchEntry {
         // 0 und 0 bedeutet "nicht gepatcht", alles andere wird geprüft
-        if (patchUniverse != 0 || patchAddress != 0) {
-            require(patchUniverse >= 1) { "Das Universum muss ab 1 gezählt werden" }
-            require(patchAddress in 1..512) { "Die Adresse muss zwischen 1 und 512 liegen" }
-            require(patchAddress + type.channelCount - 1 <= 512) {
+        require(patchUniverse >= 1) { "Das Universum muss ab 1 gezählt werden" }
+        require(patchAddress in 1..512) { "Die Adresse muss zwischen 1 und 512 liegen" }
+        require(patchAddress + type.channelCount - 1 <= 512) {
                 "Das Fixture ragt über Kanal 512 hinaus"
-            }
         }
+
 
         val typeId = addFixtureType(type)
         val entry = buildPatchEntry(
@@ -64,13 +63,18 @@ open class ShowBuilder(private var showName: String = "Neue Show"): PatchBuilder
     }
 
     fun load(show: Showfile) {
-        fixtureTypesList.clear()
-        patchList.clear()
-        fixtureTypesList += show.fixtureTypesList
-        patchList += show.patchList
-        typeIdCounter = (show.fixtureTypesList.maxOfOrNull { it.id } ?: 0) + 1
-        patchIdCounter = maxOf(show.nextPatchId, (show.patchList.maxOfOrNull { it.id } ?: 0) + 1)
-        showName = show.name
+        if (runCatching { validateShow(show) }.isSuccess) {
+            fixtureTypesList.clear()
+            patchList.clear()
+            fixtureTypesList += show.fixtureTypesList
+            patchList += show.patchList
+            typeIdCounter = (show.fixtureTypesList.maxOfOrNull { it.id } ?: 0) + 1
+            patchIdCounter = maxOf(show.nextPatchId, (show.patchList.maxOfOrNull { it.id } ?: 0) + 1)
+            showName = show.name
+        }
+        else{
+            throw IllegalArgumentException()
+        }
     }
 
 
@@ -82,6 +86,10 @@ open class ShowBuilder(private var showName: String = "Neue Show"): PatchBuilder
 
     fun getPatch(): List<PatchEntry> {
         return patchList.toList()
+    }
+
+    fun getfixtureTypes(): List<FixtureType> {
+        return fixtureTypesList.toList()
     }
 
 }
