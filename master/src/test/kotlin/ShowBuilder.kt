@@ -63,7 +63,7 @@ open class ShowBuilder(private var showName: String = "Neue Show"): PatchBuilder
     }
 
     fun load(show: Showfile) {
-        if (runCatching { validateShow(show) }.isSuccess) {
+             validateShow(show)
             fixtureTypesList.clear()
             patchList.clear()
             fixtureTypesList += show.fixtureTypesList
@@ -71,10 +71,8 @@ open class ShowBuilder(private var showName: String = "Neue Show"): PatchBuilder
             typeIdCounter = (show.fixtureTypesList.maxOfOrNull { it.id } ?: 0) + 1
             patchIdCounter = maxOf(show.nextPatchId, (show.patchList.maxOfOrNull { it.id } ?: 0) + 1)
             showName = show.name
-        }
-        else{
-            throw IllegalArgumentException()
-        }
+
+
     }
 
 

@@ -1,7 +1,5 @@
-import dev.archx.schema.FixtureType
 import dev.archx.schema.Showfile
-import dev.archx.schema.copy
-import dev.archx.schema.fixtureType
+
 
 // Prüft, ob eine Show in sich stimmig ist.
 // Bei einem Fehler: IllegalArgumentException mit einer verständlichen Meldung.
@@ -10,9 +8,75 @@ import dev.archx.schema.fixtureType
 
 
 fun validateShow(show: Showfile) {
-    var fixtureTypesList = show.fixtureTypesList
-    var patchList = show.patchList
+    val fixtureTypesList = show.fixtureTypesList
+    val patchList = show.patchList
     val typesById = show.fixtureTypesList.associateBy { it.id }
+
+
+    for (fixture in fixtureTypesList) {
+        for (channel in fixture.channelsList) {
+            //Channel Offset cant be smaller than one
+            if (channel.offset <= 0) {
+                throw IllegalArgumentException("channel Offset cant be smaller than One. Found at:${channel.name} with Offset: ${channel.offset} at Fixture: ${fixture.name}")
+            }
+            //no offset above Channel count
+            if (channel.offset > fixture.channelCount) {
+                throw IllegalArgumentException("channel Offset cant be bigger than the Channel count. Found at: ${channel.name} with Offset: ${channel.offset} at Fixture: ${fixture.name}")
+            }
+            //no fine Offset above Channel count
+            if (channel.fineOffset > fixture.channelCount) {
+                throw IllegalArgumentException("channel fine Offset cant be bigger than the Channel count. Found at: ${channel.name} with Offset: ${channel.fineOffset} at Fixture: ${fixture.name}")
+            }
+            //offset can not be fine offset
+            if (channel.fineOffset == channel.offset) {
+                throw IllegalArgumentException("fine offset can not be the same as offset. Found at: ${channel.name} with Offset: ${channel.offset} and fine offset: ${channel.fineOffset}")
+            }
+
+        }
+
+
+        //duplicate shared Channels are not allowed
+        val allChannels = fixture.channelsList + fixture.subFixturesList.flatMap { it.channelsList }
+        val seen = mutableSetOf<Int>()
+        for (n in allChannels) {
+            if (seen.contains(n.offset)) {
+                throw IllegalArgumentException("Duplicate shared channel offsets are not allowed. Found at ${n.name +", "+ fixture.name} with Value ${n.offset}")
+            } else if (n.fineOffset > 0 && seen.contains(n.fineOffset)) {
+                throw IllegalArgumentException("Duplicate shared channels fine offsets are not allowed. Found at ${n.name +", "+ fixture.name} with Value ${n.fineOffset}")
+            } else {
+                seen.add(n.offset);
+                if (n.fineOffset > 0){
+                    seen.add(n.fineOffset);
+                }
+            }
+        }
+
+
+        val seenCells = mutableSetOf<Int>()
+        for (cell in fixture.subFixturesList){
+            //duplicate cell indexes
+            if (seenCells.contains(cell.index)){
+                throw IllegalArgumentException("Duplicate cell Indexes are not allowed. Found at ${cell.name} with Value ${cell.index}")
+            }
+            else{
+                seenCells.add(cell.index);
+            }
+
+
+        }
+
+        //general Checks
+        for (channel in allChannels) {
+            if (channel.offset <= 0) { throw IllegalArgumentException("Channel offset cant be smaller than 0")}
+            if (channel.offset > fixture.channelCount) { throw IllegalArgumentException()}
+            if (channel.fineOffset < 0) { throw IllegalArgumentException("Channel fine offset cant be smaller than 0")}
+            if (channel.fineOffset > fixture.channelCount) { throw IllegalArgumentException() }
+            if (channel.fineOffset != 0 && channel.fineOffset == channel.offset) { throw IllegalArgumentException() }
+        }
+
+
+
+    }
 
 
     //unknow Type Ids
@@ -130,29 +194,5 @@ fun validateShow(show: Showfile) {
             throw IllegalArgumentException("Invalid fixtures channelCount: ${fixture.channelCount}")
         }
     }
-
-
-
-
-
-    for (fixture in fixtureTypesList){
-       for (channel in fixture.channelsList){
-           //Channel Offset cant be smaller than one
-           if(channel.offset <= 0){
-               throw IllegalArgumentException("channel Offset cant be smaller than One. Found at:${channel.name} with Offset: ${channel.offset} at Fixture: ${fixture.name}")
-           }
-           //no offset above Channelcount
-           if (channel.offset > fixture.channelCount){
-               throw IllegalArgumentException("channel Offset cant be bigger than the Channel count. Found at: ${channel.name} with Offset: ${channel.offset} at Fixture: ${fixture.name}")
-           }
-       }
-    }
-
-
-
-
-
-
-
 }
 

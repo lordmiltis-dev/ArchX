@@ -2,6 +2,7 @@ import dev.archx.schema.Attribute
 import dev.archx.schema.FixtureType
 import dev.archx.schema.Showfile
 import dev.archx.schema.channelDef
+import dev.archx.schema.copy
 import dev.archx.schema.fixtureType
 import dev.archx.schema.patchEntry
 import dev.archx.schema.showfile
@@ -163,5 +164,36 @@ class FixtureTypeValidationTest {
     fun duplicateCellIndexIsRejected() {
         val type = typeWith(cell2Index = 1)
         assertFailsWith<IllegalArgumentException> { validateShow(showWith(type)) }
+    }
+
+    // Ein Kanal von Zelle 2 liegt auf Position 8, der Typ hat aber nur 7 Kanäle
+    @Test
+    fun cellOffsetAboveChannelCountIsRejected() {
+        val type = typeWith(cell2Offsets = listOf(5, 6, 8))
+        assertFailsWith<IllegalArgumentException> { validateShow(showWith(type)) }
+    }
+
+    // Ein Kanal von Zelle 1 liegt auf Position 0
+    @Test
+    fun cellOffsetZeroIsRejected() {
+        val type = typeWith(cell1Offsets = listOf(0, 3, 4))
+        assertFailsWith<IllegalArgumentException> { validateShow(showWith(type)) }
+
+    }
+
+    @Test
+    fun twoTypesWithCellsOfDifferentSizeAreValid() {
+        val small = typeWith()                                                // 7 Kanäle, Positionen bis 7
+        val big = typeWith(count = 14, cell2Offsets = listOf(12, 13, 14))     // 14 Kanäle, Positionen bis 14
+            .copy { id = 2; libraryKey = "test/gross/14-channel" }
+        val show = showfile {
+            name = "Zwei Typen"
+            fixtureTypes += small
+            fixtureTypes += big
+            patch += patchEntry { id = 1; fixtureNumber = 1; name = "Klein"; fixtureTypeId = 1; universe = 1; address = 1 }
+            patch += patchEntry { id = 2; fixtureNumber = 2; name = "Gross"; fixtureTypeId = 2; universe = 1; address = 20 }
+            nextPatchId = 3
+        }
+        validateShow(show)
     }
 }
