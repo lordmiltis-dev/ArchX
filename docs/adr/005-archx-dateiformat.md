@@ -11,7 +11,16 @@ Pixel-Mapping-Inhalte, Videos und Bilder können sehr groß sein. Sie können au
 
 ## Entscheidung
 
-1. **`.archx` ist eine Binärdatei.** Sie besteht aus einem kleinen Kopf mit einer Kennung (zum Beispiel `ARCHX`) und der Formatversion. Danach folgt ein Protobuf-Block, der das Showfile beschreibt (siehe ADR 0003).
+1. **`.archx` ist eine Binärdatei.** Sie besteht aus einem Kopf von 17 Bytes und einem Protobuf-Block, der das Showfile beschreibt (siehe ADR 0003):
+
+   | Bytes | Inhalt |
+   |---|---|
+   | 0 bis 4 | Kennung `ARCHX` |
+   | 5 bis 8 | Formatversion als Zahl ohne Vorzeichen (4 Bytes, niedrigstes Byte zuerst) |
+   | 9 bis 16 | Länge des Protobuf-Blocks in Bytes (8 Bytes, niedrigstes Byte zuerst) |
+   | ab 17 | Protobuf-Block |
+
+   Die gespeicherte Länge erkennt abgeschnittene Dateien. Protobuf allein bemerkt das nicht immer, denn ein Block, der genau an einer Feldgrenze endet, wäre eine gültige, aber unvollständige Show. Eine Prüfsumme über den Block kommt später dazu.
 2. **Medien liegen nicht in der Datei, sondern in einem Medienordner neben ihr.** Die `.archx` speichert nur Verweise.
 3. **Ein Verweis enthält eine eindeutige Kennung, eine Prüfsumme (Hash) des Inhalts und den relativen Pfad im Medienordner.** Cues speichern solche Verweise auf Pixel-Mapping-Inhalte, Videos und Bilder, nie die Daten selbst.
 4. **Fehlende Medien verhindern das Laden nicht.** Das Showfile wird geladen, betroffene Cues werden als "Medium fehlt" gekennzeichnet, und der Nutzer sieht eine Liste.

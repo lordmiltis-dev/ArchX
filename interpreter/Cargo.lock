@@ -25,6 +25,7 @@ dependencies = [
  "prost-build 0.13.5",
  "prost-build 0.14.4",
  "protoc-bin-vendored",
+ "tempfile",
 ]
 
 [[package]]
