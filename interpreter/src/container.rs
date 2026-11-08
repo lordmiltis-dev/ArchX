@@ -8,8 +8,10 @@
 #![allow(dead_code)] // solange main() das Modul noch nicht benutzt
 
 use crate::archx::Showfile;
-use std::path::Path;
 use prost::Message;
+use std::fs::{self, File};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
 pub const MAGIC: &[u8; 5] = b"ARCHX";
 pub const FORMAT_VERSION: u32 = 1;
@@ -41,27 +43,35 @@ impl From<prost::DecodeError> for ContainerError {
     }
 }
 
+pub(crate) fn temp_path(path: &Path) -> PathBuf {
+    let mut name = path.as_os_str().to_owned();
+    name.push(".tmp");
+    PathBuf::from(name)
+}
 /// Schreibt die Show sicher in eine Datei: erst in eine Temp-Datei, dann umbenennen.
 pub fn save_show(path: &Path, show: &Showfile) -> Result<(), ContainerError> {
     let payload = show.encode_to_vec();
     let mut bytes = Vec::with_capacity(HEADER_LEN + payload.len());
+    let tmp = temp_path(path);
 
     bytes.extend_from_slice(MAGIC);
     bytes.extend_from_slice(&FORMAT_VERSION.to_le_bytes());
     bytes.extend_from_slice(&(payload.len() as u64).to_le_bytes());
     bytes.extend_from_slice(&payload);
 
+    {
+        let mut file = File::create(&tmp)?;
+        file.write_all(&bytes)?;
+        file.sync_all()?;
+    }
 
-
-
-
-    std::fs::write(path, bytes)?;
+    fs::rename(&tmp, path)?;
     Ok(())
 }
 
 /// Liest eine Show aus einer Datei und prüft dabei Kennung, Version und Länge.
 pub fn load_show(path: &Path) -> Result<Showfile, ContainerError> {
-    let bytes = std::fs::read(path)?;
+    let bytes =   fs::read(path)?;
     if bytes.len() < HEADER_LEN {
         return Err(ContainerError::Truncated);
     }
@@ -272,5 +282,35 @@ mod tests {
         fs::write(&path, bytes).unwrap();
 
         assert!(matches!(load_show(&path), Err(ContainerError::Truncated)));
+    }
+
+    #[test]
+    fn failed_save_keeps_the_old_file() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("test.archx");
+        save_show(&path, &sample_show()).unwrap();
+
+        // An der Stelle der Temp-Datei liegt ein Ordner, deshalb schlägt das Anlegen fehl
+        fs::create_dir(temp_path(&path)).unwrap();
+
+        let mut other = sample_show();
+        other.name = "Andere Show".into();
+        assert!(save_show(&path, &other).is_err());
+
+        // Die alte Datei ist noch vollständig da
+        assert_eq!(load_show(&path).unwrap().name, "Testshow");
+    }
+
+    // Eine Temp-Datei von einem früheren Absturz darf das Speichern nicht stören
+    #[test]
+    fn stale_temp_file_is_overwritten() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("test.archx");
+        fs::write(temp_path(&path), b"Reste eines frueheren Absturzes").unwrap();
+
+        save_show(&path, &sample_show()).unwrap();
+
+        assert_eq!(load_show(&path).unwrap(), sample_show());
+        assert!(!temp_path(&path).exists());
     }
 }
