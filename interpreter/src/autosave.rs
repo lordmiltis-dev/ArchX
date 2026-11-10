@@ -10,6 +10,7 @@ use crate::archx::Showfile;
 use crate::container::{load_show, save_show, ContainerError, temp_path};
 use std::fs;
 use std::path::{Path, PathBuf};
+use crate::main;
 
 /// Liest die Nummer aus einem Dateinamen wie "Testshow-000042.archx".
 /// Gibt `None` zurück, wenn der Name nicht zu dieser Show gehört.
@@ -56,18 +57,50 @@ pub fn write_autosave(dir: &Path, show_name: &str, show: &Showfile) -> Result<Pa
 
 /// Löscht alle Sicherungen dieser Show bis auf die neuesten `keep`.
 pub fn prune_autosaves(dir: &Path, show_name: &str, keep: usize) -> Result<(), ContainerError> {
-    todo!("hier kommt dein Code hin")
+    let autosaves = numbered_autosaves(dir, show_name)?;
+
+    for backup_tuple in autosaves.iter().skip(keep) {
+        let rmfile = &backup_tuple.1;
+
+        std::fs::remove_file(rmfile).map_err(|e|{
+            ContainerError::Io(e)
+        })?;
+    }
+
+    Ok(())
 }
 
 /// Lädt die Hauptdatei. Gelingt das nicht, wird die neueste lesbare Sicherung genommen.
 /// Findet sich auch dort nichts Lesbares, kommt der Fehler der Hauptdatei zurück.
-pub fn load_with_fallback(
-    main_path: &Path,
-    autosave_dir: &Path,
-    show_name: &str,
-) -> Result<Showfile, ContainerError> {
-    todo!("hier kommt dein Code hin")
-}
+pub fn load_with_fallback(main_path: &Path, autosave_dir: &Path, show_name: &str, ) -> Result<Showfile, ContainerError> {
+    let main_show = main_path;
+    let fallback_list = numbered_autosaves(autosave_dir, show_name)?;
+
+    match load_show(main_show) {
+        Ok(main_show) => Ok(main_show),
+        Err(original_error) => {
+                for backup_tuple in  &fallback_list{
+                    let backup_path = &backup_tuple.1;
+
+                    if let Ok(backup_show) = load_show(backup_path){
+                        return Ok(backup_show);
+                    }
+                }
+
+
+                if fallback_list.is_empty() {
+                    Err(original_error)
+                }
+                else {
+                    Err(ContainerError::Corrupt("All Showfiles and Autosaves are Corrupted".parse().unwrap()))
+                }
+
+            }
+
+        }
+
+    }
+
 
 #[cfg(test)]
 mod tests {
@@ -138,7 +171,7 @@ mod tests {
 
     // ----- Rotation -----
 
-   /* #[test]
+   #[test]
     fn prune_keeps_only_the_newest() {
         let dir = tempdir().unwrap();
         for name in ["eins", "zwei", "drei", "vier", "fuenf"] {
@@ -249,5 +282,5 @@ mod tests {
         let result = load_with_fallback(&main, &autosaves, "Testshow");
 
         assert!(matches!(result, Err(ContainerError::Truncated)));
-    }*/
+    }
 }
