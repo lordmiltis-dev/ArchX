@@ -1,4 +1,4 @@
-// Der Code aus schema/showfile.proto. Er entsteht beim Bauen durch build.rs.
+// The code generated from schema/showfile.proto; it is produced during the build via build.rs.
 pub mod archx {
     include!(concat!(env!("OUT_DIR"), "/archx.rs"));
 }
@@ -13,23 +13,23 @@ use std::ops::Add;
 use std::path::Path;
 use std::process::ExitCode;
 
-const USAGE: &str = "Aufruf:
-  archx-interpreter pack <show.bin> <show.archx>     rohe Protobuf-Bytes in eine .archx-Datei verpacken
-  archx-interpreter unpack <show.archx> <show.bin>   .archx-Datei wieder in rohe Bytes auspacken
-  archx-interpreter info <show.archx>                Inhalt einer .archx-Datei anzeigen";
+const USAGE: &str = "Usage:
+  archx-interpreter pack <show.bin> <show.archx>     pack raw Protobuf bytes into a .archx file
+  archx-interpreter unpack <show.archx> <show.bin>   unpack a .archx file back into raw bytes
+  archx-interpreter info <show.archx>                display the contents of a .archx file";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
     match run(&args) {
         Ok(()) => ExitCode::SUCCESS,
         Err(message) => {
-            eprintln!("Fehler: {message}");
+            eprintln!("Error: {message}");
             ExitCode::FAILURE
         }
     }
 }
 
-// Wählt anhand des ersten Arguments den Befehl aus
+// Select the command based on the first argument.
 fn run(args: &[String]) -> Result<(), String> {
     match args.get(1).map(String::as_str) {
         Some("pack") if args.len() == 4 => pack(Path::new(&args[2]), Path::new(&args[3])),
@@ -39,45 +39,45 @@ fn run(args: &[String]) -> Result<(), String> {
     }
 }
 
-// Rohe Protobuf-Bytes (zum Beispiel aus Kotlin exportiert) in eine .archx-Datei verpacken
+// Pack raw Protobuf bytes (for example exported from Kotlin) into a .archx file.
 fn pack(input: &Path, output: &Path) -> Result<(), String> {
     let bytes = fs::read(input)
-        .map_err(|e| format!("{} lässt sich nicht lesen: {e}", input.display()))?;
+        .map_err(|e| format!("{} cannot be read: {e}", input.display()))?;
     let show = Showfile::decode(bytes.as_slice())
-        .map_err(|e| format!("Das ist keine gültige Show: {e}"))?;
+        .map_err(|e| format!("This is not a valid show: {e}"))?;
     container::save_show(output, &show)
-        .map_err(|e| format!("Speichern fehlgeschlagen: {e:?}"))?;
-    println!("{} Bytes aus {} nach {} gepackt", bytes.len(), input.display(), output.display());
+        .map_err(|e| format!("Save failed: {e:?}"))?;
+    println!("{} bytes from {} to {} packed", bytes.len(), input.display(), output.display());
     Ok(())
 }
 
-// Eine .archx-Datei wieder in rohe Protobuf-Bytes auspacken
+// Unpack a .archx file back to raw Protobuf bytes.
 fn unpack(input: &Path, output: &Path) -> Result<(), String> {
     let show = container::load_show(input)
-        .map_err(|e| format!("Laden fehlgeschlagen: {e:?}"))?;
+        .map_err(|e| format!("Load failed: {e:?}"))?;
     let bytes = show.encode_to_vec();
     fs::write(output, &bytes)
-        .map_err(|e| format!("{} lässt sich nicht schreiben: {e}", output.display()))?;
-    println!("{} Bytes aus {} nach {} ausgepackt", bytes.len(), input.display(), output.display());
+        .map_err(|e| format!("{} cannot be written: {e}", output.display()))?;
+    println!("{} bytes from {} to {} unpacked", bytes.len(), input.display(), output.display());
     Ok(())
 }
 
-// Den Inhalt einer .archx-Datei anzeigen
+// Display the contents of a .archx file.
 fn info(path: &Path) -> Result<(), String> {
     let show = container::load_show(path)
-        .map_err(|e| format!("Laden fehlgeschlagen: {e:?}"))?;
+        .map_err(|e| format!("Load failed: {e:?}"))?;
     println!("{}", describe(&show));
     Ok(())
 }
 
-/// Beschreibt eine Show als Text. Das Format:
+/// Describe a show as text. The format is:
 ///
 /// ```text
 /// Show: Testshow
-/// Typen: 1
+/// Types: 1
 /// Patches: 2
-///   Patch 1: Par 1 (Universum 1, Adresse 1)
-///   Patch 2: Par 2 (Universum 1, Adresse 7)
+///   Patch 1: Par 1 (Universe 1, Address 1)
+///   Patch 2: Par 2 (Universe 1, Address 7)
 /// ```
 fn describe(show: &Showfile) -> String {
     let mut text = String::new();
@@ -85,10 +85,8 @@ fn describe(show: &Showfile) -> String {
     text.push_str(&format!("Typen: {} \n", show.fixture_types.len()));
     text.push_str(&format!("Patches: {} \n", show.patch.len()));
 
-    for patch in &show.patch{
-
-
-        text.push_str(&format!("Patch {}: {} (Universum {}, Adresse {}) \n",patch.id, patch.name, patch.universe, patch.address));
+    for patch in &show.patch {
+        text.push_str(&format!("Patch {}: {} (Universum {}, Adresse {}) \n", patch.id, patch.name, patch.universe, patch.address));
     }
     print!("{}", text);
 
@@ -103,24 +101,24 @@ mod tests {
 
     const GOLDEN_BIN: &str = "../schema/testdata/showfile_example.bin";
 
-    // Liest die Datei, die das Kotlin-Programm geschrieben hat, und prüft die Werte
+    // Read the file written by the Kotlin program and verify the values.
     #[test]
     fn reads_showfile_written_by_kotlin() {
         let bytes = fs::read(GOLDEN_BIN)
-            .expect("Testdatei fehlt: zuerst in Kotlin exportToBinary ausführen");
-        let show = Showfile::decode(bytes.as_slice()).expect("Die Bytes sind kein gültiges Showfile");
+            .expect("Test datei missing: run exportToBinary in Kotlin first");
+        let show = Showfile::decode(bytes.as_slice()).expect("The bytes are not a valid Showfile");
 
         assert_eq!(show.name, "Testshow");
         assert_eq!(show.next_patch_id, 3);
 
-        // Ein Typ, zwei Patches
+        // One type, two patches
         assert_eq!(show.fixture_types.len(), 1);
         assert_eq!(show.patch.len(), 2);
         assert_eq!(show.patch[0].fixture_type_id, show.patch[1].fixture_type_id);
         assert_eq!(show.patch[0].address, 1);
         assert_eq!(show.patch[1].address, 7);
 
-        // Der Typ und seine Kanäle
+        // The type and its channels
         let typ = &show.fixture_types[0];
         assert_eq!(typ.name, "Platinum Mini TRI-PAR");
         assert_eq!(typ.channel_count, 6);
@@ -133,7 +131,7 @@ mod tests {
         assert_eq!(intensity.precedence(), Precedence::Htp);
     }
 
-    // Verpacken und wieder Auspacken ergibt dieselbe Show
+    // Packing and unpacking yields the same show again.
     #[test]
     fn pack_then_unpack_keeps_the_show() {
         let dir = tempdir().unwrap();

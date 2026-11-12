@@ -2,22 +2,22 @@
 #include <iostream>
 #include <string>
 
-#include "fader.pb.h"  // wird von protoc aus schema/fader.proto erzeugt
+#include "fader.pb.h"  // generated from schema/fader.proto by protoc
 
 int main() {
-    // Pfad zur Datei, die das Kotlin-Programm geschrieben hat
+    // Path to the file written by the Kotlin program.
     const std::string path = std::string(TESTDATA_DIR) + "/fader_moved.bin";
 
     std::ifstream in(path, std::ios::binary);
     if (!in) {
-        std::cerr << "Datei nicht gefunden: " << path << "\n";
+        std::cerr << "File not found: " << path << "\n";
         return 1;
     }
 
-    // Bytes in ein FaderMoved-Objekt umwandeln
+    // Convert the bytes into a FaderMoved object.
     archx::FaderMoved msg;
     if (!msg.ParseFromIstream(&in)) {
-        std::cerr << "Die Bytes konnten nicht gelesen werden\n";
+        std::cerr << "The bytes could not be read\n";
         return 1;
     }
 
@@ -25,13 +25,13 @@ int main() {
               << "value    = " << msg.value() << "\n"
               << "touched  = " << (msg.touched() ? "true" : "false") << "\n";
 
-    // Prüfen, ob dieselben Werte herauskommen wie in Kotlin
+    // Check whether the same values are read as those written by Kotlin.
     const bool ok = msg.fader_id() == 3 && msg.value() == 0.75f && msg.touched();
     if (!ok) {
-        std::cerr << "FEHLER: Die Werte stimmen nicht\n";
+        std::cerr << "ERROR: the values do not match\n";
         return 1;
     }
 
-    std::cout << "OK: C++ liest dieselben Werte, die Kotlin geschrieben hat\n";
+    std::cout << "OK: C++ reads the same values that Kotlin wrote\n";
     return 0;
 }

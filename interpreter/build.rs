@@ -1,15 +1,13 @@
 
-fn main(){
-    // protoc kommt aus dem Paket protoc-bin-vendored, es muss nichts installiert sein
-    let protoc = protoc_bin_vendored::protoc_bin_path().expect("protoc nicht gefunden");
+fn main() {
+    // protoc comes from the protoc-bin-vendored package, so nothing needs to be installed separately.
+    let protoc = protoc_bin_vendored::protoc_bin_path().expect("protoc not found");
 
     prost_build::Config::new()
         .protoc_executable(protoc)
         .compile_protos(&["../schema/showfile.proto"], &["../schema"])
-        .expect("Schema konnte nicht übersetzt werden");
+        .expect("Schema could not be compiled");
 
-    // Cargo soll neu bauen, sobald sich etwas im Schema-Ordner ändert
+    // Cargo should rebuild whenever anything in the schema directory changes.
     println!("cargo:rerun-if-changed=../schema");
-
-
 }

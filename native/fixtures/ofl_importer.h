@@ -2,18 +2,18 @@
 
 #include <string>
 
-#include "showfile.pb.h"  // entsteht beim Bauen aus schema/showfile.proto
+#include "showfile.pb.h"  // generated during the build from schema/showfile.proto
 
 namespace archx {
 
-// Baut aus dem Text einer OFL-Fixture-Datei (JSON) den FixtureType für EINEN Modus.
+// Build a FixtureType for a single mode from the JSON text of an OFL fixture file.
 //
-//   json_text          der komplette Inhalt der OFL-Datei
-//   manufacturer_name  Anzeigename des Herstellers (steht in OFL in einer eigenen Datei, deshalb übergibt ihn der Aufrufer)
-//   mode_name          Name des Modus, zum Beispiel "6-channel"
+//   json_text          the full content of the OFL file
+//   manufacturer_name  display name of the manufacturer (stored in a separate OFL file, so it is passed by the caller)
+//   mode_name          name of the mode, for example "6-channel"
 //
-// Die ID des Typs bleibt leer, sie vergibt später der Master.
-// Wirft std::runtime_error, wenn der Modus nicht existiert oder etwas nicht unterstützt wird.
+// The type ID remains empty; the master assigns it later.
+// Throws std::runtime_error if the mode does not exist or if something is unsupported.
 FixtureType ImportOflMode(const std::string& json_text,
                           const std::string& manufacturer_name,
                           const std::string& mode_name);

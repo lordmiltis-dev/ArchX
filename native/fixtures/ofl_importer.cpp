@@ -65,6 +65,7 @@ namespace archx
             return found != SimpleTypes().end() ? found->second : ATTRIBUTE_OTHER;
         }
 
+        // Return the first usable capability for a channel, skipping "NoFunction" entries.
         const nlohmann::json* FirstCapability(const nlohmann::json& channel_info) {
             if (channel_info.contains("capability")) {
                 return &channel_info.at("capability");
@@ -85,24 +86,23 @@ namespace archx
                               const std::string& manufacturer_name,
                               const std::string& mode_name)
     {
-        // Schritte (Einzelheiten im Arbeitsplan):
+        // Steps (details in the work plan):
         //
-        //  1. JSON einlesen:                 auto fixture = nlohmann::json::parse(json_text);
-        //  2. Den Modus mit passendem Namen in fixture.at("modes") suchen, sonst std::runtime_error werfen.
-        //  3. Position jedes Kanalnamens bestimmen (Erster Durchlauf): Durch mode.at("channels") gehen,
-        //     die Position zählt ab 1. Ein Eintrag null ist ein unbenutzter Kanal: Er zählt mit, bekommt aber keinen Eintrag.
-        //     Ein Eintrag, der ein Objekt ist (Matrix-Kanäle), ist noch nicht unterstützt: std::runtime_error werfen.
-        //  4. Feinkanäle erkennen: Hat ein Kanal in fixture.at("availableChannels") das Feld "fineChannelAliases",
-        //     ist der erste Alias der Feinkanal. Er bekommt keinen eigenen ChannelDef, seine Position wird
-        //     fine_offset des Hauptkanals.
-        //  5. ChannelDefs bauen (Zweiter Durchlauf): offset, attribute (über AttributeFor), name,
-        //     highlight_value (Feld "highlightValue", wenn es eine Zahl ist),
-        //     precedence (Feld "precedence": "HTP" oder "LTP"), fine_offset.
-        //     Die Fähigkeit steht entweder in "capability" (ein Objekt) oder in "capabilities" (eine Liste).
-        //     Bei einer Liste zählt die erste, die nicht "NoFunction" ist.
-        //  6. FixtureType füllen: name, manufacturer, mode_name, library_source ("ofl"),
-        //     library_key ("<manufacturerKey>/<fixtureKey>/<Modusname>"), library_revision (meta.lastModifyDate),
-        //     channel_count (Anzahl der Einträge in mode.at("channels"), auch der unbenutzten).
+        //  1. Parse the JSON:                  auto fixture = nlohmann::json::parse(json_text);
+        //  2. Find the mode with the matching name in fixture.at("modes"), otherwise throw std::runtime_error.
+        //  3. Determine the position of each channel name (first pass): iterate through mode.at("channels");
+        //     the position starts at 1. A null entry means an unused channel: it counts toward the total but not a ChannelDef.
+        //     An object entry (matrix channels) is not supported yet: throw std::runtime_error.
+        //  4. Detect fine channels: if a channel in fixture.at("availableChannels") has the field "fineChannelAliases",
+        //     the first alias is the fine channel. It does not get its own ChannelDef; its position becomes the fine_offset of the main channel.
+        //  5. Build ChannelDefs (second pass): offset, attribute (via AttributeFor), name,
+        //     highlight_value (field "highlightValue" if it is numeric),
+        //     precedence (field "precedence": "HTP" or "LTP"), fine_offset.
+        //     The capability may be stored in "capability" (an object) or in "capabilities" (a list).
+        //     For a list, the first entry that is not "NoFunction" counts.
+        //  6. Fill FixtureType: name, manufacturer, mode_name, library_source ("ofl"),
+        //     library_key ("<manufacturerKey>/<fixtureKey>/<mode name>"), library_revision (meta.lastModifyDate),
+        //     channel_count (number of entries in mode.at("channels"), including unused ones).
 
         const nlohmann::json* mode = nullptr;
         nlohmann::json fixture;
@@ -113,7 +113,7 @@ namespace archx
         }
         catch (const nlohmann::json::exception& e)
         {
-            throw std::runtime_error(std::string("Invalid Json file: ")+ e.what());
+            throw std::runtime_error(std::string("Invalid Json file: ") + e.what());
         }
 
         for (const auto& candidate : fixture.at("modes"))
@@ -141,7 +141,7 @@ namespace archx
 
             const std::string channel_name = entry.get<std::string>();
 
-            const nlohmann::json& info = available.at(channel_name);  // Beschreibung dieses Kanals
+            const nlohmann::json& info = available.at(channel_name);  // description of this channel
 
             ChannelDef* channel = type.add_channels();
             channel->set_offset(pos);
@@ -160,7 +160,6 @@ namespace archx
                 if (precedence == "HTP") channel->set_precedence(PRECEDENCE_HTP);
                 if (precedence == "LTP") channel->set_precedence(PRECEDENCE_LTP);
             }
-
         }
 
         type.set_name(fixture.at("name").get<std::string>());
@@ -170,9 +169,9 @@ namespace archx
         type.set_library_key(fixture.at("manufacturerKey").get<std::string>() + "/" +
                              fixture.at("fixtureKey").get<std::string>() + "/" + mode_name);
         type.set_library_revision(fixture.at("meta").at("lastModifyDate").get<std::string>());
-        type.set_channel_count(pos);                 // Anzahl aller Einträge, auch der unbenutzten
+        type.set_channel_count(pos); // count all entries, including unused ones
         return type;
     }
 }
 
-    // namespace archx
+// namespace archx

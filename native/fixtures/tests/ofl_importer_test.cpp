@@ -1,6 +1,6 @@
-// Tests für den OFL-Importer.
-// Die JSON-Texte unten sind kleine, selbst geschriebene Beispiele im Aufbau der Open Fixture Library.
-// Sie enthalten keine kopierten Dateien und dürfen deshalb im Repository liegen.
+// Tests for the OFL importer.
+// The example JSON texts below are small, hand-written fixtures modeled after the Open Fixture Library structure.
+// They do not contain copied files and may therefore live in the repository.
 
 #include <iostream>
 #include <stdexcept>
@@ -10,14 +10,14 @@
 
 using namespace archx;
 
-// ---------- kleine Prüf-Hilfen ----------
+// ---------- Small test helpers ----------
 
 static int failures = 0;
 
 #define CHECK(cond)                                                                  \
     do {                                                                             \
         if (!(cond)) {                                                               \
-            std::cerr << "FEHLER " << __FILE__ << ":" << __LINE__ << ": " #cond "\n"; \
+            std::cerr << "ERROR " << __FILE__ << ":" << __LINE__ << ": " #cond "\n"; \
             ++failures;                                                              \
         }                                                                            \
     } while (0)
@@ -27,18 +27,18 @@ static int failures = 0;
         auto va = (a);                                                               \
         auto vb = (b);                                                               \
         if (!(va == vb)) {                                                           \
-            std::cerr << "FEHLER " << __FILE__ << ":" << __LINE__ << ": " #a " == " #b \
+            std::cerr << "ERROR " << __FILE__ << ":" << __LINE__ << ": " #a " == " #b \
                       << "  (" << va << " != " << vb << ")\n";                       \
             ++failures;                                                              \
         }                                                                            \
     } while (0)
 
-// Die Zusatzaufgaben (Feinkanäle, unbenutzte Kanäle) schaltest du ein, wenn du so weit bist.
+// The stretch goals (fine channels, unused channels) can be enabled when you are ready for them.
 constexpr bool kRunStretchTests = false;
 
-// ---------- Beispieldaten ----------
+// ---------- Sample data ----------
 
-// Ein einfacher Scheinwerfer: Intensität, RGB, Makro, Strobe
+// A simple fixture: intensity, RGB, macro, strobe.
 static const std::string kMiniTriPar = R"json({
   "name": "Platinum Mini TRI-PAR",
   "meta": { "lastModifyDate": "2018-09-22" },
@@ -69,7 +69,7 @@ static const std::string kMiniTriPar = R"json({
   "manufacturerKey": "lightmaxx"
 })json";
 
-// Ein kleiner Moving Head mit Feinkanälen (16 Bit), die nicht neben ihrem Hauptkanal stehen müssen
+// A small moving head with fine channels (16-bit) that do not have to be adjacent to their main channel.
 static const std::string kMover = R"json({
   "name": "Test Mover",
   "meta": { "lastModifyDate": "2020-01-01" },
@@ -85,7 +85,7 @@ static const std::string kMover = R"json({
   "manufacturerKey": "test"
 })json";
 
-// Ein Modus mit einem unbenutzten Kanal (null)
+// A mode with an unused channel (null).
 static const std::string kUnused = R"json({
   "name": "Test Unused",
   "meta": { "lastModifyDate": "2021-02-02" },
@@ -119,7 +119,7 @@ static void test_mini_tri_par_basics() {
 static void test_mini_tri_par_channels() {
     FixtureType type = ImportOflMode(kMiniTriPar, "lightmaXX", "6-channel");
     if (type.channels_size() != 6) {
-        std::cerr << "FEHLER: erwartet 6 Kanäle, erhalten " << type.channels_size() << "\n";
+        std::cerr << "ERROR: expected 6 channels, got " << type.channels_size() << "\n";
         ++failures;
         return;
     }
@@ -138,7 +138,7 @@ static void test_mini_tri_par_channels() {
     CHECK_EQ(type.channels(3).attribute(), ATTRIBUTE_BLUE);
     CHECK_EQ(type.channels(3).offset(), 4u);
 
-    // Das Makro hat nur Farbvoreinstellungen und Effekte: Wir behandeln es als EFFECT
+    // The macro contains only presets and effects, so we treat it as EFFECT.
     CHECK_EQ(type.channels(4).attribute(), ATTRIBUTE_EFFECT);
     CHECK_EQ(type.channels(4).offset(), 5u);
     CHECK_EQ(type.channels(4).precedence(), PRECEDENCE_UNSPECIFIED);
@@ -151,14 +151,14 @@ static void test_mini_tri_par_channels() {
 static void test_unknown_mode_throws() {
     bool thrown = false;
     try {
-        ImportOflMode(kMiniTriPar, "lightmaXX", "gibt-es-nicht");
+        ImportOflMode(kMiniTriPar, "lightmaXX", "does-not-exist");
     } catch (const std::runtime_error&) {
         thrown = true;
     }
     CHECK(thrown);
 }
 
-// Zusatzaufgabe 1: Feinkanäle sind keine eigenen Einträge, ihre Position wird fine_offset des Hauptkanals
+// Stretch goal 1: fine channels are not separate entries; their position becomes the fine_offset of the main channel.
 static void test_pan_tilt_with_fine_channels() {
     FixtureType type = ImportOflMode(kMover, "Test", "5-channel");
 
@@ -179,7 +179,7 @@ static void test_pan_tilt_with_fine_channels() {
     CHECK_EQ(type.channels(2).fine_offset(), 0u);
 }
 
-// Zusatzaufgabe 2: Ein unbenutzter Kanal zählt zur Kanalzahl und zu den Positionen, bekommt aber keinen Eintrag
+// Stretch goal 2: an unused channel counts toward channel_count and positions, but it does not get an entry.
 static void test_unused_channel_counts_but_is_not_listed() {
     FixtureType type = ImportOflMode(kUnused, "Test", "3-channel");
 
@@ -203,15 +203,15 @@ int main() {
             test_unused_channel_counts_but_is_not_listed();
         }
     } catch (const std::exception& e) {
-        // Ein Test hat eine unerwartete Ausnahme geworfen (zum Beispiel, weil der Importer noch fehlt)
-        std::cerr << "Unerwartete Ausnahme: " << e.what() << "\n";
+        // A test threw an unexpected exception (for example, because the importer is not implemented yet).
+        std::cerr << "Unexpected exception: " << e.what() << "\n";
         return 1;
     }
 
     if (failures == 0) {
-        std::cout << "Alle Tests bestanden\n";
+        std::cout << "All tests passed\n";
         return 0;
     }
-    std::cerr << failures << " Prüfung(en) fehlgeschlagen\n";
+    std::cerr << failures << " check(s) failed\n";
     return 1;
 }

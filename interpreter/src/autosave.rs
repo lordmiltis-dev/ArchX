@@ -1,10 +1,10 @@
-// Automatische Sicherungen mit Rotation, siehe docs/adr/0007-autosave.md
+// Automatic backups with rotation, see docs/adr/0007-autosave.md.
 //
-// Dateiname einer Sicherung: "<Showname>-<Nummer mit 6 Stellen>.archx", zum Beispiel "Testshow-000042.archx".
-// Die Nummer steigt immer weiter. Hinweis: Der Showname sollte später für Dateinamen bereinigt werden
-// (Schrägstriche und andere unerlaubte Zeichen).
+// Backup file name: "<Show name>-<6-digit number>.archx", for example "Testshow-000042.archx".
+// The number always increases. Note: the show name should later be sanitized for file names
+// (slashes and other forbidden characters).
 
-#![allow(dead_code)] // solange main() das Modul noch nicht benutzt
+#![allow(dead_code)] // main() does not use this module yet
 
 use crate::archx::Showfile;
 use crate::container::{load_show, save_show, ContainerError, temp_path};
@@ -12,16 +12,16 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use crate::main;
 
-/// Liest die Nummer aus einem Dateinamen wie "Testshow-000042.archx".
-/// Gibt `None` zurück, wenn der Name nicht zu dieser Show gehört.
+/// Read the numeric suffix from a backup file name like "Testshow-000042.archx".
+/// Returns `None` when the file name does not belong to this show.
 fn autosave_number(file_name: &str, show_name: &str) -> Option<u64> {
     let rest = file_name.strip_prefix(show_name)?.strip_prefix('-')?;
     let digits = rest.strip_suffix(".archx")?;
     digits.parse().ok()
 }
 
-/// Alle Sicherungen dieser Show mit ihrer Nummer, die neueste zuerst.
-/// Gibt es den Ordner nicht, ist die Liste leer.
+/// All backups for this show with their numbers, newest first.
+/// If the folder does not exist, the result is empty.
 fn numbered_autosaves(dir: &Path, show_name: &str) -> Result<Vec<(u64, PathBuf)>, ContainerError> {
     if !dir.exists() {
         return Ok(Vec::new());
@@ -34,35 +34,35 @@ fn numbered_autosaves(dir: &Path, show_name: &str) -> Result<Vec<(u64, PathBuf)>
             found.push((number, entry.path()));
         }
     }
-    found.sort_by(|a, b| b.0.cmp(&a.0)); // höchste Nummer zuerst
+    found.sort_by(|a, b| b.0.cmp(&a.0)); // highest number first
     Ok(found)
 }
 
-/// Pfade aller Sicherungen dieser Show, die neueste zuerst.
+/// Paths to all backups of this show, newest first.
 pub fn list_autosaves(dir: &Path, show_name: &str) -> Result<Vec<PathBuf>, ContainerError> {
     let numbered = numbered_autosaves(dir, show_name)?;
     Ok(numbered.into_iter().map(|(_, path)| path).collect())
 }
 
-/// Schreibt eine neue Sicherung mit der nächsthöheren Nummer und legt den Ordner an, falls er fehlt.
-/// Liefert den Pfad der neuen Datei.
+/// Write a new backup with the next higher number and create the directory if it is missing.
+/// Returns the path to the new file.
 pub fn write_autosave(dir: &Path, show_name: &str, show: &Showfile) -> Result<PathBuf, ContainerError> {
     fs::create_dir_all(dir)?;
-    let next = numbered_autosaves(dir, show_name)?.first().map(|(n,_)| n + 1).unwrap_or(1);
+    let next = numbered_autosaves(dir, show_name)?.first().map(|(n, _)| n + 1).unwrap_or(1);
     let show_name = format!("{show_name}-{next:06}.archx");
     let path = dir.join(show_name);
     save_show(&path, show)?;
     Ok(path)
 }
 
-/// Löscht alle Sicherungen dieser Show bis auf die neuesten `keep`.
+/// Delete all backups for this show except the newest `keep` entries.
 pub fn prune_autosaves(dir: &Path, show_name: &str, keep: usize) -> Result<(), ContainerError> {
     let autosaves = numbered_autosaves(dir, show_name)?;
 
     for backup_tuple in autosaves.iter().skip(keep) {
         let rmfile = &backup_tuple.1;
 
-        std::fs::remove_file(rmfile).map_err(|e|{
+        std::fs::remove_file(rmfile).map_err(|e| {
             ContainerError::Io(e)
         })?;
     }
@@ -70,37 +70,31 @@ pub fn prune_autosaves(dir: &Path, show_name: &str, keep: usize) -> Result<(), C
     Ok(())
 }
 
-/// Lädt die Hauptdatei. Gelingt das nicht, wird die neueste lesbare Sicherung genommen.
-/// Findet sich auch dort nichts Lesbares, kommt der Fehler der Hauptdatei zurück.
-pub fn load_with_fallback(main_path: &Path, autosave_dir: &Path, show_name: &str, ) -> Result<Showfile, ContainerError> {
+/// Load the main file. If that fails, use the newest readable autosave.
+/// If no readable files are available, return the original main-file error.
+pub fn load_with_fallback(main_path: &Path, autosave_dir: &Path, show_name: &str) -> Result<Showfile, ContainerError> {
     let main_show = main_path;
     let fallback_list = numbered_autosaves(autosave_dir, show_name)?;
 
     match load_show(main_show) {
         Ok(main_show) => Ok(main_show),
         Err(original_error) => {
-                for backup_tuple in  &fallback_list{
-                    let backup_path = &backup_tuple.1;
+            for backup_tuple in &fallback_list {
+                let backup_path = &backup_tuple.1;
 
-                    if let Ok(backup_show) = load_show(backup_path){
-                        return Ok(backup_show);
-                    }
+                if let Ok(backup_show) = load_show(backup_path) {
+                    return Ok(backup_show);
                 }
-
-
-                if fallback_list.is_empty() {
-                    Err(original_error)
-                }
-                else {
-                    Err(ContainerError::Corrupt("All Showfiles and Autosaves are Corrupted".parse().unwrap()))
-                }
-
             }
 
+            if fallback_list.is_empty() {
+                Err(original_error)
+            } else {
+                Err(ContainerError::Corrupt("All Showfiles and Autosaves are Corrupted".parse().unwrap()))
+            }
         }
-
     }
-
+}
 
 #[cfg(test)]
 mod tests {
@@ -115,7 +109,7 @@ mod tests {
         }
     }
 
-    // ----- Schreiben und Auflisten -----
+    // ----- Write and list -----
 
     #[test]
     fn first_autosave_is_created_and_loadable() {
@@ -129,7 +123,7 @@ mod tests {
     #[test]
     fn missing_folder_is_created() {
         let dir = tempdir().unwrap();
-        let sub = dir.path().join("autosave"); // existiert noch nicht
+        let sub = dir.path().join("autosave"); // does not exist yet
 
         write_autosave(&sub, "Testshow", &show_named("Testshow")).unwrap();
 
@@ -139,7 +133,7 @@ mod tests {
     #[test]
     fn missing_folder_means_empty_list() {
         let dir = tempdir().unwrap();
-        let sub = dir.path().join("gibt-es-nicht");
+        let sub = dir.path().join("does-not-exist");
 
         assert!(list_autosaves(&sub, "Testshow").unwrap().is_empty());
     }
@@ -171,7 +165,7 @@ mod tests {
 
     // ----- Rotation -----
 
-   #[test]
+    #[test]
     fn prune_keeps_only_the_newest() {
         let dir = tempdir().unwrap();
         for name in ["eins", "zwei", "drei", "vier", "fuenf"] {
@@ -197,14 +191,14 @@ mod tests {
         assert_eq!(list_autosaves(dir.path(), "Testshow").unwrap().len(), 2);
     }
 
-    // Nach dem Löschen alter Dateien darf die Nummerierung nicht von vorn beginnen
+    // After deleting old files, numbering must not restart from the beginning.
     #[test]
     fn numbers_keep_growing_after_pruning() {
         let dir = tempdir().unwrap();
         for name in ["eins", "zwei", "drei"] {
             write_autosave(dir.path(), "Testshow", &show_named(name)).unwrap();
         }
-        prune_autosaves(dir.path(), "Testshow", 1).unwrap(); // nur "drei" bleibt
+        prune_autosaves(dir.path(), "Testshow", 1).unwrap(); // only "drei" remains
 
         write_autosave(dir.path(), "Testshow", &show_named("vier")).unwrap();
 
@@ -213,7 +207,7 @@ mod tests {
         assert_eq!(load_show(&list[1]).unwrap().name, "drei");
     }
 
-    // ----- Wiederherstellung -----
+    // ----- Recovery -----
 
     #[test]
     fn healthy_main_file_is_preferred() {
@@ -263,7 +257,7 @@ mod tests {
         write_autosave(&autosaves, "Testshow", &show_named("alt")).unwrap();
         write_autosave(&autosaves, "Testshow", &show_named("neu")).unwrap();
 
-        // Die neueste Sicherung beschädigen
+        // Corrupt the newest backup.
         let newest = list_autosaves(&autosaves, "Testshow").unwrap().remove(0);
         fs::write(&newest, b"kaputt").unwrap();
 
@@ -277,7 +271,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let main = dir.path().join("Testshow.archx");
         let autosaves = dir.path().join("autosave");
-        fs::write(&main, b"kaputt").unwrap(); // weniger Bytes als der Kopf, also "Truncated"
+        fs::write(&main, b"kaputt").unwrap(); // fewer bytes than header, therefore "Truncated"
 
         let result = load_with_fallback(&main, &autosaves, "Testshow");
 

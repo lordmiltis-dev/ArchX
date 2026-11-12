@@ -1,11 +1,11 @@
-// Das .archx-Dateiformat: Kopf (17 Bytes) plus Protobuf-Block, siehe docs/adr/0005-archx-dateiformat.md
+// The .archx file format: header (17 bytes) plus a Protobuf block, see docs/adr/0005-archx-dateiformat.md.
 //
-//   Bytes 0 bis 4    Kennung "ARCHX"
-//   Bytes 5 bis 8    Formatversion (u32, niedrigstes Byte zuerst)
-//   Bytes 9 bis 16   Länge des Protobuf-Blocks (u64, niedrigstes Byte zuerst)
-//   ab Byte 17       Protobuf-Block
+//   Bytes 0..4      Magic "ARCHX"
+//   Bytes 5..8      Format version (u32, least-significant byte first)
+//   Bytes 9..16     Length of the Protobuf block (u64, least-significant byte first)
+//   From byte 17   Protobuf block
 
-#![allow(dead_code)] // solange main() das Modul noch nicht benutzt
+#![allow(dead_code)] // main() does not use this module yet
 
 use crate::archx::Showfile;
 use prost::Message;
@@ -19,15 +19,15 @@ pub const HEADER_LEN: usize = 5 + 4 + 8;
 
 #[derive(Debug)]
 pub enum ContainerError {
-    /// Lesen oder Schreiben der Datei ist fehlgeschlagen
+    /// Reading or writing the file failed.
     Io(std::io::Error),
-    /// Die Datei beginnt nicht mit "ARCHX"
+    /// The file does not begin with "ARCHX".
     BadMagic,
-    /// Die Datei stammt aus einer neueren Version des Formats
+    /// The file comes from a newer format version.
     UnsupportedVersion(u32),
-    /// Die Datei ist kürzer, als der Kopf angibt (oder kürzer als der Kopf selbst)
+    /// The file is shorter than the header indicates (or shorter than the header itself).
     Truncated,
-    /// Der Kopf stimmt, aber der Protobuf-Block lässt sich nicht lesen
+    /// The header is valid, but the Protobuf block cannot be decoded.
     Corrupt(String),
 }
 
@@ -43,12 +43,14 @@ impl From<prost::DecodeError> for ContainerError {
     }
 }
 
+/// Build the temporary file path for a show by appending ".tmp" to the target name.
 pub(crate) fn temp_path(path: &Path) -> PathBuf {
     let mut name = path.as_os_str().to_owned();
     name.push(".tmp");
     PathBuf::from(name)
 }
-/// Schreibt die Show sicher in eine Datei: erst in eine Temp-Datei, dann umbenennen.
+
+/// Write the show safely to a file: first to a temporary file, then rename it.
 pub fn save_show(path: &Path, show: &Showfile) -> Result<(), ContainerError> {
     let payload = show.encode_to_vec();
     let mut bytes = Vec::with_capacity(HEADER_LEN + payload.len());
@@ -69,9 +71,9 @@ pub fn save_show(path: &Path, show: &Showfile) -> Result<(), ContainerError> {
     Ok(())
 }
 
-/// Liest eine Show aus einer Datei und prüft dabei Kennung, Version und Länge.
+/// Read a show from a file and validate its magic value, version, and length.
 pub fn load_show(path: &Path) -> Result<Showfile, ContainerError> {
-    let bytes =   fs::read(path)?;
+    let bytes = fs::read(path)?;
     if bytes.len() < HEADER_LEN {
         return Err(ContainerError::Truncated);
     }
@@ -94,7 +96,6 @@ pub fn load_show(path: &Path) -> Result<Showfile, ContainerError> {
 
     let show = Showfile::decode(&bytes[HEADER_LEN..end])?;
     Ok(show)
-
 }
 
 #[cfg(test)]
@@ -104,7 +105,7 @@ mod tests {
     use std::fs;
     use tempfile::tempdir;
 
-    // Eine kleine Show mit einem Typ und einem Patch
+    // A small show with one type and one patch.
     fn sample_show() -> Showfile {
         Showfile {
             name: "Testshow".into(),
@@ -127,7 +128,7 @@ mod tests {
         }
     }
 
-    // ----- Speichern und Laden -----
+    // ----- Save and load -----
 
     #[test]
     fn save_then_load_returns_same_show() {
@@ -161,11 +162,11 @@ mod tests {
 
         save_show(&path, &sample_show()).unwrap();
 
-        // Im Ordner darf nur die fertige Datei liegen
+        // Only the finished file is allowed to remain in the directory.
         assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
     }
 
-    // ----- Aufbau der Datei -----
+    // ----- File layout -----
 
     #[test]
     fn file_starts_with_magic_and_version() {
@@ -191,7 +192,7 @@ mod tests {
         assert_eq!(stored_len as usize, bytes.len() - HEADER_LEN);
     }
 
-    // ----- Ungültige Dateien -----
+    // ----- Invalid files -----
 
     #[test]
     fn missing_file_is_an_io_error() {
@@ -236,7 +237,7 @@ mod tests {
 
         match load_show(&path) {
             Err(ContainerError::UnsupportedVersion(v)) => assert_eq!(v, newer),
-            other => panic!("erwartet UnsupportedVersion, erhalten: {:?}", other),
+            other => panic!("expected UnsupportedVersion, got: {:?}", other),
         }
     }
 
@@ -247,7 +248,7 @@ mod tests {
         save_show(&path, &sample_show()).unwrap();
 
         let mut bytes = fs::read(&path).unwrap();
-        bytes.truncate(bytes.len() - 3); // die letzten drei Bytes fehlen
+        bytes.truncate(bytes.len() - 3); // the last three bytes are missing
         fs::write(&path, bytes).unwrap();
 
         assert!(matches!(load_show(&path), Err(ContainerError::Truncated)));
@@ -257,8 +258,7 @@ mod tests {
     fn garbage_payload_is_rejected_as_corrupt() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("test.archx");
-
-        // Gültiger Kopf, aber der Block besteht aus Unsinn
+        // Valid header, but the payload is garbage.
         let garbage = [0xFFu8; 10];
         let mut bytes = Vec::new();
         bytes.extend_from_slice(MAGIC);
@@ -278,7 +278,7 @@ mod tests {
         let mut bytes = Vec::new();
         bytes.extend_from_slice(MAGIC);
         bytes.extend_from_slice(&FORMAT_VERSION.to_le_bytes());
-        bytes.extend_from_slice(&u64::MAX.to_le_bytes()); // behauptet eine unmögliche Länge
+        bytes.extend_from_slice(&u64::MAX.to_le_bytes()); // claims an impossible length
         fs::write(&path, bytes).unwrap();
 
         assert!(matches!(load_show(&path), Err(ContainerError::Truncated)));
@@ -290,18 +290,18 @@ mod tests {
         let path = dir.path().join("test.archx");
         save_show(&path, &sample_show()).unwrap();
 
-        // An der Stelle der Temp-Datei liegt ein Ordner, deshalb schlägt das Anlegen fehl
+        // There is a directory where the temporary file should be, so creating it fails.
         fs::create_dir(temp_path(&path)).unwrap();
 
         let mut other = sample_show();
         other.name = "Andere Show".into();
         assert!(save_show(&path, &other).is_err());
 
-        // Die alte Datei ist noch vollständig da
+        // The old file is still fully intact.
         assert_eq!(load_show(&path).unwrap().name, "Testshow");
     }
 
-    // Eine Temp-Datei von einem früheren Absturz darf das Speichern nicht stören
+    // A stale temp file from an earlier crash must not interfere with saving.
     #[test]
     fn stale_temp_file_is_overwritten() {
         let dir = tempdir().unwrap();
