@@ -4,7 +4,7 @@
 
 An lighting software framework designed to work with modern and legacy digital lighting consoles through expansion slots.
 
-ArchX is built around a central Master state model and specialized Submasters that handle hardware, protocols, rendering, UI, and file import/export. This architecture keeps the system modular while ensuring all parts work from the same show state.
+ArchX is built around a central Master state model and specialized Submasters that handle hardware, protocols, rendering, UI, and file import/export. This architecture keeps the system modular while ensuring every component works from the same show state.
 
 ## Key Features
 
@@ -17,6 +17,8 @@ ArchX is built around a central Master state model and specialized Submasters th
 - Save and autosave of showfiles in the `.archx` format
 - Import and export support through extension-based showfile integrations
 - Extension ecosystem for hardware, UI, fixtures, outputs, importers, exporters, and pixel mapping
+- Safe save semantics with atomic replace operations and recovery from backup copies
+- Automatic rotation of autosave files to avoid data loss during crashes or outages
 
 ## Architecture Overview
 
@@ -54,6 +56,55 @@ The Master → Divider → USB-Submaster → driver extension → console return
 ### Save and load
 The Savefile-Interpreter reads the Master state periodically and writes it as a `.archx` showfile. Foreign showfiles can be imported through importer extensions.
 
+## Core Design Decisions
+
+### Multi-language runtime
+ArchX deliberately uses different languages for different responsibilities:
+
+- Kotlin for the Master and UI layer
+- C++ for low-latency hardware and native submasters
+- Rust for the savefile interpreter and import/export logic
+
+This separation keeps the runtime responsive while limiting complexity in the time-critical hardware paths.
+
+### Shared schema for communication
+The project uses Protocol Buffers (`proto3`) for messages, status frames, and the `.archx` structure. The schema lives under `schema/`, and code for Kotlin, C++ and Rust is generated during build time.
+
+This gives ArchX a stable cross-language contract for show state, events, and file contents without hard-coding binary layouts in each component.
+
+### `.archx` file format
+The core showfile format is a binary file with a fixed header and embedded Protobuf payload:
+
+- Magic identifier `ARCHX`
+- Format version
+- Length of the protobuf payload
+- Protobuf block with show definitions
+
+This design keeps files compact and fast to read and write while supporting version checks and safe recovery.
+
+### Media handling and save safety
+Media such as images, videos, and pixel mapping content are stored outside the showfile in a media folder beside it. The `.archx` file stores references, hashes, and relative paths rather than embedding large assets directly.
+
+Save operations are implemented safely by writing to a temporary file and renaming it only after completion. This reduces the chance of corrupt files during crashes or power loss.
+
+### Automatic backups and recovery
+ArchX uses automated backup rotation instead of a journal for the first phase:
+
+- Full show backups are written regularly into `autosave/`
+- Files are named with a running counter and kept in rotation
+- If the main showfile is missing or unreadable, the newest valid backup is used
+- Backups are only written when the show state has changed
+
+This is intentionally designed to minimize data loss during live operation without adding the complexity of a full change journal too early.
+
+### Local data layout
+Project data is stored in OS-specific user directories rather than the repository itself:
+
+- Linux: `~/.local/share/archx/`, `~/.config/archx/`, `~/.cache/archx/`
+- Windows: `%APPDATA%\ArchX\` and `%LOCALAPPDATA%\ArchX\`
+
+The data layout separates libraries, showfiles, autosaves, and caches while keeping settings isolated from the showfiles themselves.
+
 ## Extension Types
 
 - Hardware drivers for consoles
@@ -77,6 +128,9 @@ The Savefile-Interpreter reads the Master state periodically and writes it as a 
 - [ADR 0001: Programming languages](docs/adr/001-sprachen.md)
 - [ADR 0002: License](docs/adr/002-lizenz.md)
 - [ADR 0003: Schema format](docs/adr/003-ipc-format.md)
+- [ADR 0005: `.archx` file format](docs/adr/005-archx-dateiformat.md)
+- [ADR 0006: Storage locations](docs/adr/0006-speicherorte.md)
+- [ADR 0007: Autosave strategy](docs/adr/0007-autosave.md)
 
 ## Technology Stack
 
@@ -84,6 +138,7 @@ The Savefile-Interpreter reads the Master state periodically and writes it as a 
 - Rust – Savefile interpreter and file handling
 - C++ – Submasters, hardware interaction, DMX, and native processing
 - CMake – Native build integration
+- Protobuf – Cross-language message and file schema
 
 ## Status
 
