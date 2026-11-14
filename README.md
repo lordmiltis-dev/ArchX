@@ -1,5 +1,7 @@
 # ArchX
 
+> **🚧 WORK IN PROGRESS — ArchX is not finished.** This project is under active development; features, interfaces, and documentation may change, and it is not yet ready for production use.
+
 <img src="docs/img/ArchX_Logo_ohne_Hintergrund.png" width="200" height="200">
 
 An lighting software framework designed to work with modern and legacy digital lighting consoles through expansion slots.
