@@ -116,18 +116,18 @@ namespace archx
             throw std::runtime_error(std::string("Invalid Json file: ") + e.what());
         }
 
-        for (const auto& candidate : fixture.at("modes"))
-        {
+        for (const auto& candidate : fixture.at("modes")) {
             if (candidate.at("name").get<std::string>() == mode_name)
             {
                 mode = &candidate;
                 break;
             }
-            if (mode == nullptr)
-            {
-                throw std::runtime_error(std::string("Invalid mode: ") + mode_name);
-            }
         }
+        if (mode == nullptr)
+        {
+                throw std::runtime_error(std::string("Invalid mode: ") + mode_name);
+        }
+
 
         const nlohmann::json& available = fixture.at("availableChannels");
         FixtureType type;
@@ -136,7 +136,7 @@ namespace archx
         for (const auto& entry : mode->at("channels"))
         {
             pos++;
-            if (entry.is_number()) continue;
+            if (entry.is_null()) continue;
             if (entry.is_object()) throw std::runtime_error("Matrix-Channels are not supported yet");
 
             const std::string channel_name = entry.get<std::string>();
