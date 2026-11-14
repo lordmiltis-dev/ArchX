@@ -1,6 +1,8 @@
 # ArchX
 
 > **🚧 WORK IN PROGRESS — ArchX is not finished.** This project is under active development; features, interfaces, and documentation may change, and it is not yet ready for production use.
+>
+> **AI disclosure:** AI tools were used to help develop this software. The ideas and implementation direction are my own. AI tools may also be used during future development, but all AI-generated code must be reviewed and previewed by a human before it is accepted.
 
 <img src="docs/img/ArchX_Logo_ohne_Hintergrund.png" width="200" height="200">
 
@@ -124,6 +126,22 @@ The data layout separates libraries, showfiles, autosaves, and caches while keep
 - `schema/` – Protocol and showfile schema definitions
 - `docs/` – project documentation, architecture, and ADRs
 
+## Roadmap
+
+ArchX is still under active development. The following are broad goals, not release promises or a claim that these capabilities are already complete:
+
+1. Validate the cross-language schemas and communication paths between Kotlin, C++, and Rust.
+2. Build out the core Master and showfile handling, including safe saving and autosave/recovery.
+3. Develop the extension interfaces for console hardware, DMX/Art-Net, fixture libraries, pixel mapping, and UI.
+4. Add and test import/export integrations and media handling.
+5. Improve documentation, automated tests, and compatibility coverage as the framework matures.
+
+## Contributing
+
+Contributions are welcome, especially extension work. Before developing an extension, create and work on your own branch rather than committing directly to a shared branch. Open a pull request when it is ready for review.
+
+The project owner or a designated team member will preview and review every contribution before it is merged or otherwise incorporated into `main` or any other shared branch. AI tools may be used, but AI-generated code must be reviewed and previewed by the contributor before submission. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution workflow.
+
 ## Documentation
 
 - [Architecture overview](docs/architecture.md)
@@ -142,6 +160,10 @@ The data layout separates libraries, showfiles, autosaves, and caches while keep
 - CMake – Native build integration
 - Protobuf – Cross-language message and file schema
 
+## License
+
+ArchX is licensed under the GNU General Public License v3.0. See [LICENSE.md](LICENSE.md). GPLv3 allows redistribution, including for a fee, subject to its terms.
+
 ## Status
 
-ArchX is designed as a modular lighting framework that aims to bridge older and newer console ecosystems through extensible hardware and software interfaces.
+ArchX is designed as a modular lighting framework that aims to bridge older and newer console ecosystems through extensible hardware and software interfaces. It is not yet finished or ready for production use.
