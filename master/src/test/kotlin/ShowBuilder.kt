@@ -63,7 +63,7 @@ open class ShowBuilder(private var showName: String = "Neue Show"): PatchBuilder
     }
 
     fun load(show: Showfile) {
-             validateShow(show)
+            validateShow(show)
             fixtureTypesList.clear()
             patchList.clear()
             fixtureTypesList += show.fixtureTypesList

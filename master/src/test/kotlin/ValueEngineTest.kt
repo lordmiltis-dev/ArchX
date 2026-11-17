@@ -156,7 +156,7 @@ class ValueEngineTest {
         nextPatchId = 9
     }
 
-    private fun engine(): ValueEngine = ValueEngine().also { it.load(testShow()) }
+    private fun engine(): ValueEngine = ValueEngine(testShow()).also { it.load() }
 
     // ---------------------------------------------------------------
     // Rahmen und Adressen
@@ -431,7 +431,7 @@ class ValueEngineTest {
         val e = engine()
         e.setValue(1, 1, Attribute.ATTRIBUTE_INTENSITY, 1.0f)
 
-        e.load(testShow())
+        e.load()
 
         assertEquals(0, e.frame(1).at(1))
     }
