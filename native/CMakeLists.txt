@@ -36,3 +36,19 @@ target_link_libraries(archx_fixtures PUBLIC archx_schema nlohmann_json::nlohmann
 add_executable(ofl_importer_test fixtures/tests/ofl_importer_test.cpp)
 target_link_libraries(ofl_importer_test PRIVATE archx_fixtures)
 add_test(NAME ofl_importer COMMAND ofl_importer_test)
+
+# --- DMX / Art-Net ---
+add_library(archx_dmx STATIC dmx/ArtNet/artnet_packet.cpp)
+target_include_directories(archx_dmx PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/dmx)
+
+add_executable(artnet_packet_test dmx/ArtNet/tests/artnet_packet_test.cpp)
+target_link_libraries(artnet_packet_test PRIVATE archx_dmx)
+add_test(NAME artnet_packet COMMAND artnet_packet_test)
+
+# Werkzeuge zum Ausprobieren (nur Linux und WSL)
+add_executable(artnet_monitor dmx/ArtNet/tools/artnet_monitor.cpp)
+target_link_libraries(artnet_monitor PRIVATE archx_dmx)
+
+add_executable(artnet_send dmx/ArtNet/tools/artnet_send.cpp)
+target_link_libraries(artnet_send PRIVATE archx_dmx)
+
