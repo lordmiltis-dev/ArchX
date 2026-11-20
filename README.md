@@ -1,146 +1,161 @@
 # ArchX
 
-> **🚧 WORK IN PROGRESS — ArchX is not finished.** This project is under active development; features, interfaces, and documentation may change, and it is not yet ready for production use.
+> **🚧 WORK IN PROGRESS — ArchX is not finished.** Features, interfaces, and documentation may change during active development. The project is not yet ready for production use.
 >
-> **AI disclosure:** AI tools were used to help develop this software. The ideas and implementation direction are my own. AI tools may also be used during future development, but all AI-generated code must be reviewed and previewed by a human before it is accepted.
+> **AI disclosure:** AI tools may be used to assist with development and documentation. Architecture and implementation direction are defined by the project owner, and third-party contributions are reviewed before incorporation.
 
 <img src="docs/img/ArchX_Logo_ohne_Hintergrund.png" width="200" height="200">
 
-An lighting software framework designed to work with modern and legacy digital lighting consoles through expansion slots.
+A planned lighting software framework for modern and legacy digital lighting consoles. The goal is to connect different console ecosystems through expansion slots and hardware driver extensions.
 
-ArchX is built around a central Master state model and specialized Submasters that handle hardware, protocols, rendering, UI, and file import/export. This architecture keeps the system modular while ensuring every component works from the same show state.
+ArchX is intended to use a central Master state model for show data and specialized Submasters for hardware, protocols, rendering, the interface, and file formats. The modular boundaries are development goals and still require implementation and validation.
 
-## Key Features
+## Planned Features
 
-- Modular architecture with a central Master and pluggable Submasters
-- Support for modern and legacy digital lighting consoles via expansion slots and hardware driver extensions
-- USB console integration with automatic driver detection and bidirectional data tunneling
-- DMX and Art-Net output with optional RDM support
-- Pixel mapping and DyLOS-compatible value generation from the Master 2D list
-- Consistent show state in memory with GUI updates mirrored from the Master
-- Save and autosave of showfiles in the `.archx` format
-- Import and export support through extension-based showfile integrations
-- Extension ecosystem for hardware, UI, fixtures, outputs, importers, exporters, and pixel mapping
-- Safe save semantics with atomic replace operations and recovery from backup copies
-- Automatic rotation of autosave files to avoid data loss during crashes or outages
+The following points describe the current development direction and planned goals. Not every feature is implemented yet:
+
+- A modular architecture with a central Master and pluggable Submasters
+- Support for modern and legacy digital lighting consoles through expansion slots and hardware driver extensions
+- Planned USB console integration with automatic driver detection and bidirectional data transfer
+- Planned DMX and Art-Net output with optional RDM support
+- Planned pixel mapping and DyLOS-compatible value generation from a future Master 2D list
+- Planned in-memory show state consistency with interface updates driven by the Master
+- Planned saving and autosaving of showfiles in `.archx` format
+- Import and export support through extensions
+- A planned extension ecosystem for hardware, interface components, fixtures, outputs, importers, exporters, and pixel mapping
+- Planned safe-save behavior using temporary files and atomic replacement
+- Planned autosave rotation to reduce data loss during crashes or outages
 
 ## Architecture Overview
 
-The project is split into a Master, which keeps the full showfile state in RAM, and multiple specialized Submasters for hardware, interfaces, and processing. The system is designed so that hardware-specific logic, file formats, and fixture libraries stay isolated behind extensions.
+The planned project is divided into a Master for show state and multiple specialized Submasters for hardware, interfaces, and processing. This structure is intended to allow hardware and software components to remain modular and replaceable.
 
-<img src="docs/img/ArchX-Architecture.png" alt="ArchX architecture overview">
+<img src="docs/img/ArchX-Architecture.png" alt="Planned architecture overview">
 
 ### Main Components
 
-| Component | Language | Responsibility |
+| Component | Language | Planned Responsibility |
 | --- | --- | --- |
-| Master | Kotlin | Holds the showfile state in RAM and manages all submasters |
-| GUI-Submaster | Kotlin | User interface, configurable via UI extensions |
-| Divider / Assembler | C++ | Bundles incoming events into status frames and distributes commands to USB and DMX submasters |
-| USB-Submaster | C++ | Detects attached consoles, loads the correct driver extension, and tunnels data bidirectionally |
-| DMX / Art-Net-Submaster | C++ | Sends DMX frames in a 44 Hz loop and optionally supports RDM |
-| Pixel-Mapping-Submaster | C++ | Generates pixel values from the Master 2D list in a DyLOS-compatible way |
-| Fixtures-Library-Submaster | C++ | Manages fixture profiles, primarily the Onyx library, via extensions |
-| Savefile-Interpreter | Rust | Imports `.archx` showfiles, periodically saves the Master state, and exports files via extensions |
+| Master | Kotlin | Manage show state in RAM and coordinate Submasters |
+| GUI-Submaster | Kotlin | User interface and UI extensions |
+| Divider / Assembler | C++ | Bundle incoming events and distribute commands to USB and DMX components |
+| USB-Submaster | C++ | Detect consoles, load suitable driver extensions, and forward data |
+| DMX / Art-Net-Submaster | C++ | Planned periodic DMX output and optional RDM support |
+| Pixel-Mapping-Submaster | C++ | Planned value generation from the Master 2D list |
+| Fixtures-Library-Submaster | C++ | Manage fixture profiles through extensions |
+| Savefile-Interpreter | Rust | Planned loading, periodic saving, and exporting of showfiles |
 
-## Signal Flow
+## Planned Data Flow
 
-### Input: Console to interface
-Pult → USB-Submaster (driver extension) → Divider/Assembler → Master → GUI-Submaster.
+The flows below describe architectural goals. They do not guarantee that every step is currently implemented.
+
+### Input: Console to Interface
+
+Console → USB-Submaster (driver extension) → Divider/Assembler → Master → GUI-Submaster
 
 ### Output: DMX and Art-Net
-Master → Divider → DMX-Submaster → optional RDM extension → DMX Out or Art-Net Out.
 
-### Pixel mapping
-The Master provides a 2D list to the Pixel-Mapping-Submaster, which calculates the values and returns them to the Master where they are treated like any other value source.
+Master → Divider → DMX-Submaster → optional RDM extension → DMX output or Art-Net output
 
-### Feedback to the console
-The Master → Divider → USB-Submaster → driver extension → console returns LED, motor fader, and other feedback data.
+### Pixel Mapping
 
-### Save and load
-The Savefile-Interpreter reads the Master state periodically and writes it as a `.archx` showfile. Foreign showfiles can be imported through importer extensions.
+The Master is intended to provide a 2D value list to the Pixel-Mapping-Submaster. The submaster would calculate values and return them to the Master for use alongside other value sources.
+
+### Feedback to the Console
+
+The planned feedback path is Master → Divider → USB-Submaster → driver extension → console for LEDs, motor faders, and other feedback data.
+
+### Saving and Loading
+
+The Savefile-Interpreter is intended to read the Master state periodically and write `.archx` showfiles. Other showfile formats are planned to be supported through importer extensions.
 
 ## Core Design Decisions
 
-### Multi-language runtime
-ArchX deliberately uses different languages for different responsibilities:
+### Multi-language Runtime
 
-- Kotlin for the Master and UI layer
-- C++ for low-latency hardware and native submasters
-- Rust for the savefile interpreter and import/export logic
+The planned implementation uses several languages for separate responsibilities:
 
-This separation keeps the runtime responsive while limiting complexity in the time-critical hardware paths.
+- Kotlin for the Master and interface
+- C++ for hardware-facing code and native Submasters
+- Rust for savefile processing and persistence
 
-### Shared schema for communication
-The project uses Protocol Buffers (`proto3`) for messages, status frames, and the `.archx` structure. The schema lives under `schema/`, and code for Kotlin, C++ and Rust is generated during build time.
+This separation is intended to keep time-critical hardware paths small and maintainable. The language boundaries and communication model are still subject to development and validation.
 
-This gives ArchX a stable cross-language contract for show state, events, and file contents without hard-coding binary layouts in each component.
+### Shared Communication Schema
 
-### `.archx` file format
-The core showfile format is a binary file with a fixed header and embedded Protobuf payload:
+Protocol Buffers (`proto3`) are planned for messages, status frames, and the `.archx` structure. Schemas will live under `schema/`; Kotlin, C++, and Rust code are intended to be generated during builds.
+
+This should provide a shared contract for show state, events, and file contents without hard-coding binary layouts in every component.
+
+### Planned `.archx` File Format
+
+The planned showfile format is a binary file with a fixed header and embedded Protocol Buffers payload:
 
 - Magic identifier `ARCHX`
 - Format version
-- Length of the protobuf payload
-- Protobuf block with show definitions
+- Length of the Protocol Buffers payload
+- Protobuf block containing show definitions
 
-This design keeps files compact and fast to read and write while supporting version checks and safe recovery.
+This format is intended to support compact files, version checks, and recovery after failures.
 
-### Media handling and save safety
-Media such as images, videos, and pixel mapping content are stored outside the showfile in a media folder beside it. The `.archx` file stores references, hashes, and relative paths rather than embedding large assets directly.
+### Media Handling and Save Safety
 
-Save operations are implemented safely by writing to a temporary file and renaming it only after completion. This reduces the chance of corrupt files during crashes or power loss.
+Media such as images, videos, and pixel-mapping content is planned to be stored outside the showfile in a neighboring media folder. The `.archx` file would store references, hashes, and relative paths.
 
-### Automatic backups and recovery
-ArchX uses automated backup rotation instead of a journal for the first phase:
+For safer writes, the implementation is intended to write to a temporary file first and replace the final file only after completion. This should reduce the risk of damaged files after crashes or power loss.
 
-- Full show backups are written regularly into `autosave/`
-- Files are named with a running counter and kept in rotation
-- If the main showfile is missing or unreadable, the newest valid backup is used
-- Backups are only written when the show state has changed
+### Planned Backups and Recovery
 
-This is intentionally designed to minimize data loss during live operation without adding the complexity of a full change journal too early.
+A rotating backup strategy is planned for the first development phase:
 
-### Local data layout
-Project data is stored in OS-specific user directories rather than the repository itself:
+- Full show backups may be written regularly to `autosave/`
+- Files may use a running counter and remain in rotation
+- If the main showfile is missing or unreadable, the newest valid backup may be used
+- Backups may only be written when show state changes
+
+This strategy is intended to reduce data loss during live operation without introducing a full change journal during the early development phase.
+
+### Planned Local Data Layout
+
+Project data is planned to be stored in OS-specific user directories:
 
 - Linux: `~/.local/share/archx/`, `~/.config/archx/`, `~/.cache/archx/`
 - Windows: `%APPDATA%\ArchX\` and `%LOCALAPPDATA%\ArchX\`
 
-The data layout separates libraries, showfiles, autosaves, and caches while keeping settings isolated from the showfiles themselves.
+The layout is intended to separate libraries, showfiles, autosaves, and caches.
 
-## Extension Types
+## Planned Extension Types
 
 - Hardware drivers for consoles
-- Output modules (DMX, RDM)
+- Output modules for DMX and RDM
 - Importers and exporters for showfiles
-- Fixture library sources
-- Pixel mapping libraries, video, and image importers
-- UI extensions
+- Fixture libraries
+- Pixel-mapping libraries and media importers
+- Interface extensions
 
 ## Project Structure
 
-- `master/` – Kotlin-based master application and core show state logic
+- `master/` – Kotlin-based Master application and planned show state
 - `interpreter/` – Rust-based savefile interpreter and persistence layer
-- `native/` – C++ submasters and native runtime components
-- `schema/` – Protocol and showfile schema definitions
-- `docs/` – project documentation, architecture, and ADRs
+- `native/` – C++ Submasters and native runtime components
+- `schema/` – Protocol and showfile schemas
+- `docs/` – Project documentation, architecture, and ADRs
 
 ## Roadmap
 
-ArchX is still under active development. The following are broad goals, not release promises or a claim that these capabilities are already complete:
+ArchX is still under active development. The following are broad development goals and not promises of released functionality:
 
-1. Validate the cross-language schemas and communication paths between Kotlin, C++, and Rust.
-2. Build out the core Master and showfile handling, including safe saving and autosave/recovery.
-3. Develop the extension interfaces for console hardware, DMX/Art-Net, fixture libraries, pixel mapping, and UI.
+1. Validate cross-language schemas and communication paths between Kotlin, C++, and Rust.
+2. Develop the core Master and showfile handling, including safe saving and autosave/recovery.
+3. Develop extension interfaces for console hardware, DMX/Art-Net, fixture libraries, pixel mapping, and the interface.
 4. Add and test import/export integrations and media handling.
 5. Improve documentation, automated tests, and compatibility coverage as the framework matures.
 
 ## Contributing
 
-Contributions are welcome, especially extension work. Before developing an extension, create and work on your own branch rather than committing directly to a shared branch. Open a pull request when it is ready for review.
+Contributions are welcome, especially extension work. Before developing an extension, create your own branch instead of committing directly to a shared branch. Open a pull request when the work is ready for review.
 
-The project owner or a designated team member will preview and review every contribution before it is merged or otherwise incorporated into `main` or any other shared branch. AI tools may be used, but AI-generated code must be reviewed and previewed by the contributor before submission. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution workflow.
+The project owner or a designated maintainer reviews contributions before they are incorporated into `main` or another shared branch. AI tools may assist development, but they do not replace review of unverified or uncontrolled changes.
 
 ## Documentation
 
@@ -154,16 +169,16 @@ The project owner or a designated team member will preview and review every cont
 
 ## Technology Stack
 
-- Kotlin – Master and UI layer
-- Rust – Savefile interpreter and file handling
-- C++ – Submasters, hardware interaction, DMX, and native processing
-- CMake – Native build integration
-- Protobuf – Cross-language message and file schema
+- Kotlin – planned for the Master and interface
+- Rust – planned for the savefile interpreter and file handling
+- C++ – planned for Submasters, hardware interaction, DMX, and native processing
+- CMake – native build integration
+- Protocol Buffers – planned cross-language messages and file structures
 
 ## License
 
-ArchX is licensed under the GNU General Public License v3.0. See [LICENSE.md](LICENSE.md). GPLv3 allows redistribution, including for a fee, subject to its terms.
+ArchX is licensed under the GNU General Public License v3.0. See [LICENSE.md](LICENSE.md). GPLv3 permits redistribution, including for a fee, subject to its terms.
 
 ## Status
 
-ArchX is designed as a modular lighting framework that aims to bridge older and newer console ecosystems through extensible hardware and software interfaces. It is not yet finished or ready for production use.
+ArchX is planned as a modular lighting framework intended to bridge older and newer console ecosystems through extensible hardware and software interfaces. The project is unfinished, incomplete, and not approved for production use.
