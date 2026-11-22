@@ -45,9 +45,7 @@ add_executable(artnet_packet_test dmx/ArtNet/tests/artnet_packet_test.cpp)
 target_link_libraries(artnet_packet_test PRIVATE archx_dmx)
 add_test(NAME artnet_packet COMMAND artnet_packet_test)
 
-add_executable(dmx_output_test dmx/nativeDMX/tests/dmx_output_test.cpp)
-target_link_libraries(dmx_output_test PRIVATE archx_dmx)
-add_test(NAME dmx_output COMMAND dmx_output_test)
+
 
 # Werkzeuge zum Ausprobieren (nur Linux und WSL)
 add_executable(artnet_monitor dmx/ArtNet/tools/artnet_monitor.cpp)
@@ -55,4 +53,13 @@ target_link_libraries(artnet_monitor PRIVATE archx_dmx)
 
 add_executable(artnet_send dmx/ArtNet/tools/artnet_send.cpp)
 target_link_libraries(artnet_send PRIVATE archx_dmx)
+
+# --- DMX-Ausgabe (Sendeschleife) ---
+find_package(Threads REQUIRED)
+target_sources(archx_dmx PRIVATE dmx/nativeDMX/dmx_output.cpp)
+target_link_libraries(archx_dmx PUBLIC Threads::Threads)
+
+add_executable(dmx_output_test dmx/nativeDMX/tests/dmx_output_test.cpp)
+target_link_libraries(dmx_output_test PRIVATE archx_dmx)
+add_test(NAME dmx_output COMMAND dmx_output_test)
 

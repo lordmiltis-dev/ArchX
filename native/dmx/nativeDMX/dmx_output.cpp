@@ -22,9 +22,19 @@ void DmxOutput::SetFrame(uint16_t universe, const std::vector<uint8_t>& data) {
     //  1. Angaben prüfen: universe 1 bis 32768, data 1 bis 512 Werte. Sonst std::invalid_argument werfen.
     //  2. Den Mutex sperren (std::lock_guard<std::mutex> lock(mutex_);) und den Rahmen in frames_ ablegen.
     //     Der Mutex wird nur kurz gehalten: nur kopieren, nichts senden.
-    (void)universe;
-    (void)data;
-    throw std::runtime_error("SetFrame ist noch nicht umgesetzt");
+
+    if (universe < 1 || universe > 32768) {
+        throw std::invalid_argument("Invalid universe");
+    }
+
+    if (data.size() < 1 || data.size() > 512) {
+        throw std::invalid_argument("Invalid data size");
+    }
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    frames_.insert_or_assign(universe, data);
+
+
 }
 
 void DmxOutput::Start() {
@@ -34,7 +44,9 @@ void DmxOutput::Start() {
     //  3. Mit setsockopt(socket_, SOL_SOCKET, SO_BROADCAST, ...) Broadcast erlauben,
     //     sonst kann man nicht an eine Broadcast-Adresse senden.
     //  4. running_ = true; und den Thread starten: thread_ = std::thread(&DmxOutput::Run, this);
-    throw std::runtime_error("Start ist noch nicht umgesetzt");
+    if (running_) {
+
+    }
 }
 
 void DmxOutput::Stop() {
