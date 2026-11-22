@@ -38,12 +38,16 @@ target_link_libraries(ofl_importer_test PRIVATE archx_fixtures)
 add_test(NAME ofl_importer COMMAND ofl_importer_test)
 
 # --- DMX / Art-Net ---
-add_library(archx_dmx STATIC dmx/ArtNet/artnet_packet.cpp)
+add_library(archx_dmx STATIC dmx/ArtNet/artnet_packet.cpp  dmx/nativeDMX/dmx_output.cpp)
 target_include_directories(archx_dmx PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/dmx)
 
 add_executable(artnet_packet_test dmx/ArtNet/tests/artnet_packet_test.cpp)
 target_link_libraries(artnet_packet_test PRIVATE archx_dmx)
 add_test(NAME artnet_packet COMMAND artnet_packet_test)
+
+add_executable(dmx_output_test dmx/nativeDMX/tests/dmx_output_test.cpp)
+target_link_libraries(dmx_output_test PRIVATE archx_dmx)
+add_test(NAME dmx_output COMMAND dmx_output_test)
 
 # Werkzeuge zum Ausprobieren (nur Linux und WSL)
 add_executable(artnet_monitor dmx/ArtNet/tools/artnet_monitor.cpp)
