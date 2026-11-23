@@ -1,9 +1,11 @@
-// Sendet ein einzelnes Art-Net-Paket, zum Ausprobieren des Monitors. Nur für Linux und WSL.
+// Command-line utility that sends one Art-Net packet for testing and diagnostics.
+
+// Sends a single Art-Net packet for testing the monitor. Linux and WSL only.
 //
-// Aufruf:  artnet_send <Universum ab 1> <Kanal 1-512> <Wert 0-255> [Ziel-IP]
-// Beispiel:  artnet_send 1 1 255
+// Usage: artnet_send <universe starting at 1> <channel 1-512> <value 0-255> [target-IP]
+// Example: artnet_send 1 1 255
 //
-// Alle anderen Kanäle des Universums bleiben 0. Das Universum n wird als Art-Net-Universum n-1 gesendet.
+// All other channels in the universe remain zero. Universe n is sent as Art-Net universe n-1.
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -18,19 +20,19 @@
 
 #include "ArtNet/artnet_packet.h"
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     if (argc < 4) {
-        std::cerr << "Aufruf: artnet_send <Universum ab 1> <Kanal 1-512> <Wert 0-255> [Ziel-IP]\n";
+        std::cerr << "Usage: artnet_send <universe starting at 1> <channel 1-512> <value 0-255> [target-IP]\n";
         return 1;
     }
 
     const int universe = std::atoi(argv[1]);
     const int channel = std::atoi(argv[2]);
     const int value = std::atoi(argv[3]);
-    const char* target = argc > 4 ? argv[4] : "127.0.0.1";
+    const char *target = argc > 4 ? argv[4] : "127.0.0.1";
 
     if (universe < 1 || universe > 32768 || channel < 1 || channel > 512 || value < 0 || value > 255) {
-        std::cerr << "Ungültige Angabe: Universum 1 bis 32768, Kanal 1 bis 512, Wert 0 bis 255\n";
+        std::cerr << "Invalid arguments: universe 1 to 32768, channel 1 to 512, value 0 to 255\n";
         return 1;
     }
 
@@ -40,8 +42,8 @@ int main(int argc, char** argv) {
     std::vector<uint8_t> packet;
     try {
         packet = archx::BuildArtDmx(static_cast<uint16_t>(universe - 1), 0, data);
-    } catch (const std::exception& e) {
-        std::cerr << "Paket konnte nicht gebaut werden: " << e.what() << "\n";
+    } catch (const std::exception &e) {
+        std::cerr << "Could not build packet: " << e.what() << "\n";
         return 1;
     }
 
@@ -55,19 +57,19 @@ int main(int argc, char** argv) {
     address.sin_family = AF_INET;
     address.sin_port = htons(archx::kArtNetPort);
     if (inet_pton(AF_INET, target, &address.sin_addr) != 1) {
-        std::cerr << "Ungültige IP-Adresse: " << target << "\n";
+        std::cerr << "Invalid IP address: " << target << "\n";
         return 1;
     }
 
     const ssize_t sent = sendto(sock, packet.data(), packet.size(), 0,
-                                reinterpret_cast<sockaddr*>(&address), sizeof(address));
+                                reinterpret_cast<sockaddr *>(&address), sizeof(address));
     if (sent < 0) {
         std::perror("sendto");
         return 1;
     }
 
-    std::cout << "Gesendet: Universum " << universe << ", Kanal " << channel << " = " << value
-              << " an " << target << ":" << archx::kArtNetPort << "\n";
+    std::cout << "Sent: universe " << universe << ", channel " << channel << " = " << value
+            << " to " << target << ":" << archx::kArtNetPort << "\n";
     close(sock);
     return 0;
 }

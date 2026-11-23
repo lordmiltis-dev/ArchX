@@ -1,3 +1,5 @@
+// Verifies that the C++ protobuf reader matches the binary FaderMoved fixture written by Kotlin.
+
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -22,8 +24,8 @@ int main() {
     }
 
     std::cout << "fader_id = " << msg.fader_id() << "\n"
-              << "value    = " << msg.value() << "\n"
-              << "touched  = " << (msg.touched() ? "true" : "false") << "\n";
+            << "value    = " << msg.value() << "\n"
+            << "touched  = " << (msg.touched() ? "true" : "false") << "\n";
 
     // Check whether the same values are read as those written by Kotlin.
     const bool ok = msg.fader_id() == 3 && msg.value() == 0.75f && msg.touched();

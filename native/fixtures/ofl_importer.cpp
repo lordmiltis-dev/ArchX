@@ -1,16 +1,16 @@
+// Implements conversion from Open Fixture Library JSON into the showfile FixtureType format.
+
 #include "ofl_importer.h"
 
-#include <list>
 #include <map>
 #include <stdexcept>
 #include <string>
 
 #include <nlohmann/json.hpp>
 
-namespace archx
-{
+namespace archx {
     namespace {
-        const std::map<std::string, Attribute>& SimpleTypes() {
+        const std::map<std::string, Attribute> &SimpleTypes() {
             static const std::map<std::string, Attribute> types = {
                 {"Intensity", ATTRIBUTE_INTENSITY},
                 {"ColorTemperature", ATTRIBUTE_COLOR_TEMPERATURE},
@@ -44,16 +44,16 @@ namespace archx
             return types;
         }
 
-        const std::map<std::string, Attribute>& Colors() {
+        const std::map<std::string, Attribute> &Colors() {
             static const std::map<std::string, Attribute> colors = {
-                {"Red", ATTRIBUTE_RED},         {"Green", ATTRIBUTE_GREEN},     {"Blue", ATTRIBUTE_BLUE},
-                {"White", ATTRIBUTE_WHITE},     {"Amber", ATTRIBUTE_AMBER},     {"UV", ATTRIBUTE_UV},
-                {"Cyan", ATTRIBUTE_CYAN},       {"Magenta", ATTRIBUTE_MAGENTA}, {"Yellow", ATTRIBUTE_YELLOW},
+                {"Red", ATTRIBUTE_RED}, {"Green", ATTRIBUTE_GREEN}, {"Blue", ATTRIBUTE_BLUE},
+                {"White", ATTRIBUTE_WHITE}, {"Amber", ATTRIBUTE_AMBER}, {"UV", ATTRIBUTE_UV},
+                {"Cyan", ATTRIBUTE_CYAN}, {"Magenta", ATTRIBUTE_MAGENTA}, {"Yellow", ATTRIBUTE_YELLOW},
             };
             return colors;
         }
 
-        Attribute AttributeFor(const nlohmann::json& capability) {
+        Attribute AttributeFor(const nlohmann::json &capability) {
             const std::string type = capability.at("type").get<std::string>();
 
             if (type == "ColorIntensity") {
@@ -66,12 +66,12 @@ namespace archx
         }
 
         // Return the first usable capability for a channel, skipping "NoFunction" entries.
-        const nlohmann::json* FirstCapability(const nlohmann::json& channel_info) {
+        const nlohmann::json *FirstCapability(const nlohmann::json &channel_info) {
             if (channel_info.contains("capability")) {
                 return &channel_info.at("capability");
             }
             if (channel_info.contains("capabilities")) {
-                for (const auto& capability : channel_info.at("capabilities")) {
+                for (const auto &capability: channel_info.at("capabilities")) {
                     if (capability.at("type").get<std::string>() != "NoFunction") {
                         return &capability;
                     }
@@ -79,83 +79,55 @@ namespace archx
             }
             return nullptr;
         }
+    } // namespace
 
-    }  // namespace
-
-    FixtureType ImportOflMode(const std::string& json_text,
-                              const std::string& manufacturer_name,
-                              const std::string& mode_name)
-    {
-        // Steps (details in the work plan):
-        //
-        //  1. Parse the JSON:                  auto fixture = nlohmann::json::parse(json_text);
-        //  2. Find the mode with the matching name in fixture.at("modes"), otherwise throw std::runtime_error.
-        //  3. Determine the position of each channel name (first pass): iterate through mode.at("channels");
-        //     the position starts at 1. A null entry means an unused channel: it counts toward the total but not a ChannelDef.
-        //     An object entry (matrix channels) is not supported yet: throw std::runtime_error.
-        //  4. Detect fine channels: if a channel in fixture.at("availableChannels") has the field "fineChannelAliases",
-        //     the first alias is the fine channel. It does not get its own ChannelDef; its position becomes the fine_offset of the main channel.
-        //  5. Build ChannelDefs (second pass): offset, attribute (via AttributeFor), name,
-        //     highlight_value (field "highlightValue" if it is numeric),
-        //     precedence (field "precedence": "HTP" or "LTP"), fine_offset.
-        //     The capability may be stored in "capability" (an object) or in "capabilities" (a list).
-        //     For a list, the first entry that is not "NoFunction" counts.
-        //  6. Fill FixtureType: name, manufacturer, mode_name, library_source ("ofl"),
-        //     library_key ("<manufacturerKey>/<fixtureKey>/<mode name>"), library_revision (meta.lastModifyDate),
-        //     channel_count (number of entries in mode.at("channels"), including unused ones).
-
-        const nlohmann::json* mode = nullptr;
+    FixtureType ImportOflMode(const std::string &json_text,
+                              const std::string &manufacturer_name,
+                              const std::string &mode_name) {
+        const nlohmann::json *mode = nullptr;
         nlohmann::json fixture;
 
-        try
-        {
+        try {
             fixture = nlohmann::json::parse(json_text);
-        }
-        catch (const nlohmann::json::exception& e)
-        {
+        } catch (const nlohmann::json::exception &e) {
             throw std::runtime_error(std::string("Invalid Json file: ") + e.what());
         }
 
-        for (const auto& candidate : fixture.at("modes")) {
-            if (candidate.at("name").get<std::string>() == mode_name)
-            {
+        for (const auto &candidate: fixture.at("modes")) {
+            if (candidate.at("name").get<std::string>() == mode_name) {
                 mode = &candidate;
                 break;
             }
         }
-        if (mode == nullptr)
-        {
-                throw std::runtime_error(std::string("Invalid mode: ") + mode_name);
+        if (mode == nullptr) {
+            throw std::runtime_error(std::string("Invalid mode: ") + mode_name);
         }
 
 
-        const nlohmann::json& available = fixture.at("availableChannels");
+        const nlohmann::json &available = fixture.at("availableChannels");
         FixtureType type;
         unsigned pos = 0;
 
-        for (const auto& entry : mode->at("channels"))
-        {
+        for (const auto &entry: mode->at("channels")) {
             pos++;
             if (entry.is_null()) continue;
             if (entry.is_object()) throw std::runtime_error("Matrix-Channels are not supported yet");
 
             const std::string channel_name = entry.get<std::string>();
 
-            const nlohmann::json& info = available.at(channel_name);  // description of this channel
+            const nlohmann::json &info = available.at(channel_name); // description of this channel
 
-            ChannelDef* channel = type.add_channels();
+            ChannelDef *channel = type.add_channels();
             channel->set_offset(pos);
             channel->set_name(channel_name);
 
-            const nlohmann::json* capability = FirstCapability(info);
+            const nlohmann::json *capability = FirstCapability(info);
             channel->set_attribute(capability != nullptr ? AttributeFor(*capability) : ATTRIBUTE_OTHER);
 
-            if (info.contains("highlightValue") && info.at("highlightValue").is_number())
-            {
+            if (info.contains("highlightValue") && info.at("highlightValue").is_number()) {
                 channel->set_highlight_value(info.at("highlightValue").get<unsigned>());
             }
-            if (info.contains("precedence"))
-            {
+            if (info.contains("precedence")) {
                 const std::string precedence = info.at("precedence").get<std::string>();
                 if (precedence == "HTP") channel->set_precedence(PRECEDENCE_HTP);
                 if (precedence == "LTP") channel->set_precedence(PRECEDENCE_LTP);

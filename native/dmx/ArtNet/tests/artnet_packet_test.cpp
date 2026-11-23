@@ -1,4 +1,6 @@
-// Tests für den Bau und das Lesen von Art-Net-Paketen.
+// Tests ArtDmx packet construction, field encoding, padding, and parsing validation.
+
+// Tests for building and parsing Art-Net packets.
 
 #include <cstdint>
 #include <iostream>
@@ -10,14 +12,14 @@
 
 using namespace archx;
 
-// ---------- kleine Prüf-Hilfen ----------
+// Small test helpers
 
 static int failures = 0;
 
-template <typename T>
-static auto format_val(const T& v) {
+template<typename T>
+static auto format_val(const T &v) {
     if constexpr (std::is_integral_v<T> && sizeof(T) == 1) {
-        return +v; // sorgt dafür, dass uint8_t / char als Zahl gedruckt wird
+        return +v; // Ensure uint8_t and char are printed as numbers.
     } else {
         return v;
     }
@@ -26,7 +28,7 @@ static auto format_val(const T& v) {
 #define CHECK(cond)                                                                  \
     do {                                                                             \
         if (!(cond)) {                                                               \
-            std::cerr << "FEHLER " << __FILE__ << ":" << __LINE__ << ": " #cond "\n"; \
+            std::cerr << "ERROR " << __FILE__ << ":" << __LINE__ << ": " #cond "\n"; \
             ++failures;                                                              \
         }                                                                            \
     } while (0)
@@ -36,7 +38,7 @@ static auto format_val(const T& v) {
         auto va = (a);                                                               \
         auto vb = (b);                                                               \
         if (!(va == vb)) {                                                           \
-            std::cerr << "FEHLER " << __FILE__ << ":" << __LINE__ << ": " #a " == " #b \
+            std::cerr << "ERROR " << __FILE__ << ":" << __LINE__ << ": " #a " == " #b \
                       << "  (" << format_val(va) << " != " << format_val(vb)<< ")\n";                     \
             ++failures;                                                              \
         }                                                                            \
@@ -51,35 +53,35 @@ static auto format_val(const T& v) {
             thrown = true;                                                           \
         }                                                                            \
         if (!thrown) {                                                               \
-            std::cerr << "FEHLER " << __FILE__ << ":" << __LINE__                    \
-                      << ": erwartet std::invalid_argument bei " #expr "\n";         \
+            std::cerr << "ERROR " << __FILE__ << ":" << __LINE__                    \
+                      << ": expected std::invalid_argument at " #expr "\n";         \
             ++failures;                                                              \
         }                                                                            \
     } while (0)
 
-// Ein Rahmen mit 512 Werten: 0, 1, 2, ... (ab 256 wieder von vorn)
+// A frame with 512 values: 0, 1, 2, ... (wraps back to 0 after 255).
 static std::vector<uint8_t> Ramp512() {
     std::vector<uint8_t> data(512);
     for (size_t i = 0; i < data.size(); ++i) data[i] = static_cast<uint8_t>(i);
     return data;
 }
 
-// ---------- Paket bauen ----------
+// Packet building
 
 static void test_header_of_a_full_frame() {
     const auto packet = BuildArtDmx(0, 0, Ramp512());
 
     CHECK_EQ(packet.size(), static_cast<size_t>(18 + 512));
 
-    const std::string id(reinterpret_cast<const char*>(packet.data()), 7);
+    const std::string id(reinterpret_cast<const char *>(packet.data()), 7);
     CHECK_EQ(id, std::string("Art-Net"));
-    CHECK_EQ(packet[7], 0);          // abschließendes Nullbyte der Kennung
-    CHECK_EQ(packet[8], 0x00);       // Operationscode 0x5000, niedriges Byte zuerst
+    CHECK_EQ(packet[7], 0); // Null terminator for the identifier.
+    CHECK_EQ(packet[8], 0x00); // Op-code 0x5000, least-significant byte first.
     CHECK_EQ(packet[9], 0x50);
-    CHECK_EQ(packet[10], 0x00);      // Protokollversion 14, hohes Byte zuerst
+    CHECK_EQ(packet[10], 0x00); // Protocol version 14, most-significant byte first.
     CHECK_EQ(packet[11], 0x0E);
-    CHECK_EQ(packet[13], 0);         // physischer Port
-    CHECK_EQ(packet[16], 0x02);      // Länge 512 = 0x0200, hohes Byte zuerst
+    CHECK_EQ(packet[13], 0); // Physical port.
+    CHECK_EQ(packet[16], 0x02); // Length 512 = 0x0200, most-significant byte first.
     CHECK_EQ(packet[17], 0x00);
 }
 
@@ -97,11 +99,11 @@ static void test_port_address_is_split_into_two_bytes() {
     CHECK_EQ(p0[14], 0x00);
     CHECK_EQ(p0[15], 0x00);
 
-    auto p1 = BuildArtDmx(0x0102, 0, Ramp512());   // Net 1, Sub-Net 0, Universum 2
+    auto p1 = BuildArtDmx(0x0102, 0, Ramp512()); // Net 1, Sub-Net 0, Universe 2.
     CHECK_EQ(p1[14], 0x02);
     CHECK_EQ(p1[15], 0x01);
 
-    auto p2 = BuildArtDmx(0x7FFF, 0, Ramp512());   // der größte erlaubte Wert
+    auto p2 = BuildArtDmx(0x7FFF, 0, Ramp512()); // Largest allowed value.
     CHECK_EQ(p2[14], 0xFF);
     CHECK_EQ(p2[15], 0x7F);
 }
@@ -120,11 +122,11 @@ static void test_odd_length_is_padded_with_zero() {
 
     CHECK_EQ(packet.size(), static_cast<size_t>(18 + 4));
     CHECK_EQ(packet[16], 0x00);
-    CHECK_EQ(packet[17], 0x04);      // Länge 4
+    CHECK_EQ(packet[17], 0x04); // Length 4.
     CHECK_EQ(packet[18], 10);
     CHECK_EQ(packet[19], 20);
     CHECK_EQ(packet[20], 30);
-    CHECK_EQ(packet[21], 0);         // aufgefülltes Byte
+    CHECK_EQ(packet[21], 0); // Padding byte.
 }
 
 static void test_invalid_data_sizes_are_rejected() {
@@ -132,7 +134,7 @@ static void test_invalid_data_sizes_are_rejected() {
     CHECK_THROWS_INVALID(BuildArtDmx(0, 0, std::vector<uint8_t>(513, 1)));
 }
 
-// ---------- Paket lesen ----------
+// Packet parsing
 
 static void test_parse_returns_what_was_built() {
     const auto packet = BuildArtDmx(5, 7, {1, 2, 3, 4});
@@ -178,7 +180,7 @@ static void test_parse_ignores_bytes_after_the_declared_length() {
 }
 
 static void test_parse_rejects_garbage() {
-    const std::string text = "Hallo Welt, das ist kein Art-Net-Paket";
+    const std::string text = "Hello world, this is not an Art-Net packet";
     CHECK(!ParseArtDmx(reinterpret_cast<const uint8_t*>(text.data()), text.size()).has_value());
 
     CHECK(!ParseArtDmx(nullptr, 0).has_value());
@@ -189,23 +191,23 @@ static void test_parse_rejects_garbage() {
 
 static void test_parse_rejects_wrong_opcode() {
     auto packet = BuildArtDmx(0, 0, {1, 2});
-    packet[9] = 0x21;   // ein anderer Operationscode, zum Beispiel ArtPoll-Antwort
+    packet[9] = 0x21; // Another op-code, for example ArtPollReply.
     CHECK(!ParseArtDmx(packet.data(), packet.size()).has_value());
 }
 
 static void test_parse_rejects_a_truncated_packet() {
     const auto packet = BuildArtDmx(0, 0, Ramp512());
-    // Der Kopf verspricht 512 Werte, es kommen aber nur 100 an
+    // The header declares 512 values, but only 100 were received.
     CHECK(!ParseArtDmx(packet.data(), 18 + 100).has_value());
 }
 
 static void test_parse_rejects_an_impossible_length() {
     auto packet = BuildArtDmx(0, 0, {1, 2});
-    packet[16] = 0x02;   // Länge 0x0201 = 513
+    packet[16] = 0x02; // Length 0x0201 = 513.
     packet[17] = 0x01;
     CHECK(!ParseArtDmx(packet.data(), packet.size()).has_value());
 
-    packet[16] = 0x00;   // Länge 0
+    packet[16] = 0x00; // Length 0.
     packet[17] = 0x00;
     CHECK(!ParseArtDmx(packet.data(), packet.size()).has_value());
 }
@@ -228,15 +230,15 @@ int main() {
         test_parse_rejects_wrong_opcode();
         test_parse_rejects_a_truncated_packet();
         test_parse_rejects_an_impossible_length();
-    } catch (const std::exception& e) {
-        std::cerr << "Unerwartete Ausnahme: " << e.what() << "\n";
+    } catch (const std::exception &e) {
+        std::cerr << "Unexpected exception: " << e.what() << "\n";
         return 1;
     }
 
     if (failures == 0) {
-        std::cout << "Alle Tests bestanden\n";
+        std::cout << "All tests passed\n";
         return 0;
     }
-    std::cerr << failures << " Prüfung(en) fehlgeschlagen\n";
+    std::cerr << failures << " check(s) failed\n";
     return 1;
 }

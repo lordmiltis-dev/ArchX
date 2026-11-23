@@ -1,3 +1,5 @@
+// Declares the ArtDmx data structure and packet building and parsing functions.
+
 #pragma once
 
 #include <cstddef>
@@ -6,24 +8,22 @@
 #include <vector>
 
 namespace archx {
+    // UDP port used to send and receive Art-Net.
+    constexpr uint16_t kArtNetPort = 6454;
 
-// UDP-Port, auf dem Art-Net gesendet und empfangen wird
-constexpr uint16_t kArtNetPort = 6454;
+    // Contents of an ArtDmx packet.
+    struct ArtDmx {
+        uint16_t port_address = 0; // 15 bits (Net 7, Sub-Net 4, Universe 4), starting at 0.
+        uint8_t sequence = 0; // 0 means sequence numbering is disabled.
+        std::vector<uint8_t> data; // 2 to 512 DMX values.
+    };
 
-// Der Inhalt eines ArtDmx-Pakets
-struct ArtDmx {
-    uint16_t port_address = 0;   // 15 Bit (Net 7 Bit, Sub-Net 4 Bit, Universum 4 Bit), zählt ab 0
-    uint8_t sequence = 0;        // 0 bedeutet: Sequenznummer wird nicht benutzt
-    std::vector<uint8_t> data;   // 2 bis 512 DMX-Werte
-};
+    // Builds an ArtDmx packet (18-byte header plus data).
+    // An odd number of values is padded with zero because Art-Net requires an even length.
+    // Throws std::invalid_argument if port_address exceeds 0x7FFF or data is empty or longer than 512.
+    std::vector<uint8_t> BuildArtDmx(uint16_t port_address, uint8_t sequence, const std::vector<uint8_t> &data);
 
-// Baut ein ArtDmx-Paket (18 Bytes Kopf plus Daten).
-// Eine ungerade Anzahl Werte wird mit einer 0 aufgefüllt, denn Art-Net verlangt eine gerade Länge.
-// Wirft std::invalid_argument, wenn port_address größer als 0x7FFF ist oder data leer oder länger als 512 ist.
-std::vector<uint8_t> BuildArtDmx(uint16_t port_address, uint8_t sequence, const std::vector<uint8_t>& data);
-
-// Liest ein empfangenes Paket.
-// Gibt std::nullopt zurück, wenn es kein gültiges ArtDmx-Paket ist.
-std::optional<ArtDmx> ParseArtDmx(const uint8_t* bytes, size_t length);
-
-}  // namespace archx
+    // Parses a received packet.
+    // Returns std::nullopt if the packet is not valid ArtDmx.
+    std::optional<ArtDmx> ParseArtDmx(const uint8_t *bytes, size_t length);
+} // namespace archx

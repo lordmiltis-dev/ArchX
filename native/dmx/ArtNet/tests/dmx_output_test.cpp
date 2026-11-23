@@ -1,7 +1,9 @@
-// Tests für DmxOutput. Ein lokaler UDP-Empfänger fängt die Pakete ab. Nur für Linux und WSL.
+// Tests the DmxOutput send loop and UDP packet behavior with a local receiver.
+
+// Tests for DmxOutput. A local UDP receiver captures the packets. Linux and WSL only.
 //
-// Hinweis: Einige Tests hängen an der Zeit (zum Beispiel die Rate von 44 Hz). Die Grenzen sind großzügig,
-// auf einem sehr ausgelasteten Rechner kann trotzdem ein Test einmal danebenliegen. Starte ihn dann noch einmal.
+// Some tests depend on timing, for example the 44 Hz rate. The limits are generous,
+// but a heavily loaded machine may occasionally make a test fail. Run it again if that happens.
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -14,24 +16,23 @@
 #include <iostream>
 #include <map>
 #include <optional>
-#include <set>
 #include <stdexcept>
 #include <thread>
 #include <vector>
 
 #include "ArtNet/artnet_packet.h"
-#include "nativeDMX/dmx_output.h"
+#include "../dmx_output.h"
 
 using namespace archx;
 
-// ---------- kleine Prüf-Hilfen ----------
+// Small test helpers
 
 static int failures = 0;
 
 #define CHECK(cond)                                                                  \
     do {                                                                             \
         if (!(cond)) {                                                               \
-            std::cerr << "FEHLER " << __FILE__ << ":" << __LINE__ << ": " #cond "\n"; \
+            std::cerr << "ERROR " << __FILE__ << ":" << __LINE__ << ": " #cond "\n"; \
             ++failures;                                                              \
         }                                                                            \
     } while (0)
@@ -41,7 +42,7 @@ static int failures = 0;
         auto va = (a);                                                               \
         auto vb = (b);                                                               \
         if (!(va == vb)) {                                                           \
-            std::cerr << "FEHLER " << __FILE__ << ":" << __LINE__ << ": " #a " == " #b \
+            std::cerr << "ERROR " << __FILE__ << ":" << __LINE__ << ": " #a " == " #b \
                       << "  (" << +va << " != " << +vb << ")\n";                     \
             ++failures;                                                              \
         }                                                                            \
@@ -51,46 +52,46 @@ static int failures = 0;
     do {                                                                             \
         bool thrown = false;                                                         \
         try {                                                                        \
-            expr;                                                                    \
+            (void)(expr);                                                            \
         } catch (const std::invalid_argument&) {                                     \
             thrown = true;                                                           \
         }                                                                            \
         if (!thrown) {                                                               \
-            std::cerr << "FEHLER " << __FILE__ << ":" << __LINE__                    \
-                      << ": erwartet std::invalid_argument bei " #expr "\n";         \
+            std::cerr << "ERROR " << __FILE__ << ":" << __LINE__                    \
+                      << ": expected std::invalid_argument at " #expr "\n";         \
             ++failures;                                                              \
         }                                                                            \
     } while (0)
 
-// Führt einen Test aus. Eine unerwartete Ausnahme zählt als Fehler, die anderen Tests laufen weiter.
+// Runs a test. An unexpected exception counts as a failure, but the remaining tests continue.
 #define RUN(test)                                                                    \
     do {                                                                             \
         try {                                                                        \
             test();                                                                  \
         } catch (const std::exception& e) {                                          \
-            std::cerr << "FEHLER in " #test ": Ausnahme: " << e.what() << "\n";      \
+            std::cerr << "ERROR in " #test ": exception: " << e.what() << "\n";      \
             ++failures;                                                              \
         }                                                                            \
     } while (0)
 
-// ---------- Hilfen für die Tests ----------
+// Test helpers
 
-// Ein lokaler UDP-Empfänger auf einem freien Port, mit Wartezeit von 300 ms pro Paket
+// A local UDP receiver on a free port, with a 300 ms wait for each packet.
 class Receiver {
 public:
     Receiver() {
         sock_ = socket(AF_INET, SOCK_DGRAM, 0);
-        if (sock_ < 0) throw std::runtime_error("socket fehlgeschlagen");
+        if (sock_ < 0) throw std::runtime_error("socket failed");
 
         sockaddr_in addr{};
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-        addr.sin_port = 0;   // das System wählt einen freien Port
-        if (bind(sock_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
-            throw std::runtime_error("bind fehlgeschlagen");
+        addr.sin_port = 0; // The system chooses a free port.
+        if (bind(sock_, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) < 0) {
+            throw std::runtime_error("bind failed");
         }
         socklen_t length = sizeof(addr);
-        getsockname(sock_, reinterpret_cast<sockaddr*>(&addr), &length);
+        getsockname(sock_, reinterpret_cast<sockaddr *>(&addr), &length);
         port_ = ntohs(addr.sin_port);
 
         timeval timeout{};
@@ -103,7 +104,7 @@ public:
 
     uint16_t port() const { return port_; }
 
-    // Wartet auf das nächste ArtDmx-Paket. std::nullopt bei einer Zeitüberschreitung.
+    // Waits for the next ArtDmx packet. Returns std::nullopt on timeout.
     std::optional<ArtDmx> Receive() {
         uint8_t buffer[2048];
         const ssize_t received = recv(sock_, buffer, sizeof(buffer), 0);
@@ -116,7 +117,7 @@ private:
     uint16_t port_ = 0;
 };
 
-static DmxOutputConfig ConfigFor(const Receiver& receiver) {
+static DmxOutputConfig ConfigFor(const Receiver &receiver) {
     DmxOutputConfig config;
     config.target_ip = "127.0.0.1";
     config.port = receiver.port();
@@ -129,9 +130,9 @@ static std::vector<uint8_t> Ramp512() {
     return data;
 }
 
-// ---------- Tests ----------
+// Tests
 
-// Auch ohne Änderung kommt der Rahmen immer wieder
+// The frame keeps being sent even when it does not change.
 static void test_frame_is_sent_repeatedly() {
     Receiver rx;
     DmxOutput out(ConfigFor(rx));
@@ -142,13 +143,13 @@ static void test_frame_is_sent_repeatedly() {
         const auto packet = rx.Receive();
         CHECK(packet.has_value());
         if (!packet) break;
-        CHECK_EQ(packet->port_address, 0);   // Universum 1 wird als Art-Net-Universum 0 gesendet
+        CHECK_EQ(packet->port_address, 0); // Universe 1 is sent as Art-Net universe 0.
         CHECK(packet->data == Ramp512());
     }
     out.Stop();
 }
 
-// Die Folgenummer zählt von 1 bis 255 hoch und beginnt dann wieder bei 1. Die 0 kommt nie vor.
+// The sequence number increases from 1 to 255 and then starts again at 1. Zero is never used.
 static void test_sequence_counts_up_and_skips_zero() {
     Receiver rx;
     DmxOutput out(ConfigFor(rx));
@@ -173,7 +174,7 @@ static void test_sequence_counts_up_and_skips_zero() {
     }
 }
 
-// Ein neuer Rahmen ersetzt den alten
+// A new frame replaces the old one.
 static void test_new_frame_replaces_the_old_one() {
     Receiver rx;
     DmxOutput out(ConfigFor(rx));
@@ -198,7 +199,7 @@ static void test_new_frame_replaces_the_old_one() {
     out.Stop();
 }
 
-// Jedes Universum wird in jedem Takt gesendet
+// Every universe is sent at every tick.
 static void test_all_universes_are_sent() {
     Receiver rx;
     DmxOutput out(ConfigFor(rx));
@@ -216,11 +217,11 @@ static void test_all_universes_are_sent() {
     out.Stop();
 
     CHECK_EQ(counts.size(), static_cast<size_t>(2));
-    CHECK(counts[0] >= 4);   // Universum 1 als Art-Net 0
-    CHECK(counts[2] >= 4);   // Universum 3 als Art-Net 2
+    CHECK(counts[0] >= 4); // Universe 1 as Art-Net 0.
+    CHECK(counts[2] >= 4); // Universe 3 as Art-Net 2.
 }
 
-// Rund 44 Pakete pro Sekunde (mit großem Spielraum)
+// Approximately 44 packets per second, with a generous tolerance.
 static void test_rate_is_about_44_hz() {
     Receiver rx;
     DmxOutput out(ConfigFor(rx));
@@ -235,7 +236,7 @@ static void test_rate_is_about_44_hz() {
     CHECK(sent <= 55);
 }
 
-// Ohne gesetzten Rahmen wird nichts gesendet
+// No packets are sent when no frame is set.
 static void test_nothing_is_sent_without_a_frame() {
     Receiver rx;
     DmxOutput out(ConfigFor(rx));
@@ -246,7 +247,7 @@ static void test_nothing_is_sent_without_a_frame() {
     out.Stop();
 }
 
-// Nach Stop kommen keine Pakete mehr
+// No packets are sent after Stop.
 static void test_stop_ends_sending() {
     Receiver rx;
     DmxOutput out(ConfigFor(rx));
@@ -260,7 +261,7 @@ static void test_stop_ends_sending() {
     CHECK_EQ(out.PacketsSent(), after);
 }
 
-// Zerstören ohne Start und mehrfaches Stop sind harmlos
+// Destroying an output that was never started and calling Stop multiple times are harmless.
 static void test_stop_and_destructor_without_start_are_harmless() {
     DmxOutput out;
     out.Stop();
@@ -269,10 +270,10 @@ static void test_stop_and_destructor_without_start_are_harmless() {
 
 static void test_invalid_frames_are_rejected() {
     DmxOutput out;
-    CHECK_THROWS_INVALID(out.SetFrame(0, std::vector<uint8_t>(512, 0)));        // Universum ab 1
-    CHECK_THROWS_INVALID(out.SetFrame(32769, std::vector<uint8_t>(512, 0)));    // zu groß
-    CHECK_THROWS_INVALID(out.SetFrame(1, std::vector<uint8_t>()));              // leer
-    CHECK_THROWS_INVALID(out.SetFrame(1, std::vector<uint8_t>(513, 0)));        // zu lang
+    CHECK_THROWS_INVALID(out.SetFrame(0, std::vector<uint8_t>(512, 0))); // Universe 0 is invalid.
+    CHECK_THROWS_INVALID(out.SetFrame(32769, std::vector<uint8_t>(512, 0))); // Universe is too large.
+    CHECK_THROWS_INVALID(out.SetFrame(1, std::vector<uint8_t>())); // Frame is empty.
+    CHECK_THROWS_INVALID(out.SetFrame(1, std::vector<uint8_t>(513, 0))); // Frame is too large.
 }
 
 int main() {
@@ -287,9 +288,9 @@ int main() {
     RUN(test_rate_is_about_44_hz);
 
     if (failures == 0) {
-        std::cout << "Alle Tests bestanden\n";
+        std::cout << "All tests passed\n";
         return 0;
     }
-    std::cerr << failures << " Prüfung(en) fehlgeschlagen\n";
+    std::cerr << failures << " check(s) failed\n";
     return 1;
 }

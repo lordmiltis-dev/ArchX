@@ -38,7 +38,7 @@ target_link_libraries(ofl_importer_test PRIVATE archx_fixtures)
 add_test(NAME ofl_importer COMMAND ofl_importer_test)
 
 # --- DMX / Art-Net ---
-add_library(archx_dmx STATIC dmx/ArtNet/artnet_packet.cpp  dmx/nativeDMX/dmx_output.cpp)
+add_library(archx_dmx STATIC dmx/ArtNet/artnet_packet.cpp dmx/ArtNet/dmx_output.cpp)
 target_include_directories(archx_dmx PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/dmx)
 
 add_executable(artnet_packet_test dmx/ArtNet/tests/artnet_packet_test.cpp)
@@ -56,10 +56,10 @@ target_link_libraries(artnet_send PRIVATE archx_dmx)
 
 # --- DMX-Ausgabe (Sendeschleife) ---
 find_package(Threads REQUIRED)
-target_sources(archx_dmx PRIVATE dmx/nativeDMX/dmx_output.cpp)
+target_sources(archx_dmx PRIVATE dmx/ArtNet/dmx_output.cpp)
 target_link_libraries(archx_dmx PUBLIC Threads::Threads)
 
-add_executable(dmx_output_test dmx/nativeDMX/tests/dmx_output_test.cpp)
+add_executable(dmx_output_test dmx/ArtNet/tests/dmx_output_test.cpp)
 target_link_libraries(dmx_output_test PRIVATE archx_dmx)
 add_test(NAME dmx_output COMMAND dmx_output_test)
 

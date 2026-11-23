@@ -1,3 +1,5 @@
+// Tests OFL mode import, channel mapping, and library metadata handling.
+
 // Tests for the OFL importer.
 // The example JSON texts below are small, hand-written fixtures modeled after the Open Fixture Library structure.
 // They do not contain copied files and may therefore live in the repository.
@@ -124,7 +126,7 @@ static void test_mini_tri_par_channels() {
         return;
     }
 
-    const ChannelDef& intensity = type.channels(0);
+    const ChannelDef &intensity = type.channels(0);
     CHECK_EQ(intensity.offset(), 1u);
     CHECK_EQ(intensity.attribute(), ATTRIBUTE_INTENSITY);
     CHECK_EQ(intensity.name(), std::string("Intensity"));
@@ -152,7 +154,7 @@ static void test_unknown_mode_throws() {
     bool thrown = false;
     try {
         ImportOflMode(kMiniTriPar, "lightmaXX", "does-not-exist");
-    } catch (const std::runtime_error&) {
+    } catch (const std::runtime_error &) {
         thrown = true;
     }
     CHECK(thrown);
@@ -163,7 +165,7 @@ static void test_pan_tilt_with_fine_channels() {
     FixtureType type = ImportOflMode(kMover, "Test", "5-channel");
 
     CHECK_EQ(type.channel_count(), 5u);
-    CHECK_EQ(type.channels_size(), 3);  // Pan, Tilt, Dimmer
+    CHECK_EQ(type.channels_size(), 3); // Pan, Tilt, Dimmer
     if (type.channels_size() != 3) return;
 
     CHECK_EQ(type.channels(0).attribute(), ATTRIBUTE_PAN);
@@ -202,7 +204,7 @@ int main() {
             test_pan_tilt_with_fine_channels();
             test_unused_channel_counts_but_is_not_listed();
         }
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         // A test threw an unexpected exception (for example, because the importer is not implemented yet).
         std::cerr << "Unexpected exception: " << e.what() << "\n";
         return 1;
