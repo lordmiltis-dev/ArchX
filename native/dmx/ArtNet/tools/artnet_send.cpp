@@ -47,6 +47,8 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+
+
     const int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
         std::perror("socket");
@@ -72,4 +74,6 @@ int main(int argc, char **argv) {
             << " to " << target << ":" << archx::kArtNetPort << "\n";
     close(sock);
     return 0;
+
+
 }

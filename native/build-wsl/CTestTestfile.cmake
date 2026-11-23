@@ -12,3 +12,5 @@ add_test([=[ofl_importer]=] "/mnt/e/GitHub/ArchX/native/build-wsl/ofl_importer_t
 set_tests_properties([=[ofl_importer]=] PROPERTIES  _BACKTRACE_TRIPLES "/mnt/e/GitHub/ArchX/native/CMakeLists.txt;38;add_test;/mnt/e/GitHub/ArchX/native/CMakeLists.txt;0;")
 add_test([=[artnet_packet]=] "/mnt/e/GitHub/ArchX/native/build-wsl/artnet_packet_test")
 set_tests_properties([=[artnet_packet]=] PROPERTIES  _BACKTRACE_TRIPLES "/mnt/e/GitHub/ArchX/native/CMakeLists.txt;46;add_test;/mnt/e/GitHub/ArchX/native/CMakeLists.txt;0;")
+add_test([=[dmx_output]=] "/mnt/e/GitHub/ArchX/native/build-wsl/dmx_output_test")
+set_tests_properties([=[dmx_output]=] PROPERTIES  _BACKTRACE_TRIPLES "/mnt/e/GitHub/ArchX/native/CMakeLists.txt;67;add_test;/mnt/e/GitHub/ArchX/native/CMakeLists.txt;0;")

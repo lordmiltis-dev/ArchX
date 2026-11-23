@@ -54,6 +54,9 @@ target_link_libraries(artnet_monitor PRIVATE archx_dmx)
 add_executable(artnet_send dmx/ArtNet/tools/artnet_send.cpp)
 target_link_libraries(artnet_send PRIVATE archx_dmx)
 
+add_executable(artnet_out dmx/ArtNet/tools/artnet_out.cpp)
+target_link_libraries(artnet_out PRIVATE archx_dmx)
+
 # --- DMX-Ausgabe (Sendeschleife) ---
 find_package(Threads REQUIRED)
 target_sources(archx_dmx PRIVATE dmx/ArtNet/dmx_output.cpp)

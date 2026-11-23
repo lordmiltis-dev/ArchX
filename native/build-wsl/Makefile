@@ -243,6 +243,32 @@ artnet_send/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/artnet_send.dir/build.make CMakeFiles/artnet_send.dir/build
 .PHONY : artnet_send/fast
 
+#=============================================================================
+# Target rules for targets named artnet_out
+
+# Build rule for target.
+artnet_out: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 artnet_out
+.PHONY : artnet_out
+
+# fast build rule for target.
+artnet_out/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/artnet_out.dir/build.make CMakeFiles/artnet_out.dir/build
+.PHONY : artnet_out/fast
+
+#=============================================================================
+# Target rules for targets named dmx_output_test
+
+# Build rule for target.
+dmx_output_test: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 dmx_output_test
+.PHONY : dmx_output_test
+
+# fast build rule for target.
+dmx_output_test/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dmx_output_test.dir/build.make CMakeFiles/dmx_output_test.dir/build
+.PHONY : dmx_output_test/fast
+
 dmx/ArtNet/artnet_packet.o: dmx/ArtNet/artnet_packet.cpp.o
 .PHONY : dmx/ArtNet/artnet_packet.o
 
@@ -266,6 +292,30 @@ dmx/ArtNet/artnet_packet.s: dmx/ArtNet/artnet_packet.cpp.s
 dmx/ArtNet/artnet_packet.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/archx_dmx.dir/build.make CMakeFiles/archx_dmx.dir/dmx/ArtNet/artnet_packet.cpp.s
 .PHONY : dmx/ArtNet/artnet_packet.cpp.s
+
+dmx/ArtNet/dmx_output.o: dmx/ArtNet/dmx_output.cpp.o
+.PHONY : dmx/ArtNet/dmx_output.o
+
+# target to build an object file
+dmx/ArtNet/dmx_output.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/archx_dmx.dir/build.make CMakeFiles/archx_dmx.dir/dmx/ArtNet/dmx_output.cpp.o
+.PHONY : dmx/ArtNet/dmx_output.cpp.o
+
+dmx/ArtNet/dmx_output.i: dmx/ArtNet/dmx_output.cpp.i
+.PHONY : dmx/ArtNet/dmx_output.i
+
+# target to preprocess a source file
+dmx/ArtNet/dmx_output.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/archx_dmx.dir/build.make CMakeFiles/archx_dmx.dir/dmx/ArtNet/dmx_output.cpp.i
+.PHONY : dmx/ArtNet/dmx_output.cpp.i
+
+dmx/ArtNet/dmx_output.s: dmx/ArtNet/dmx_output.cpp.s
+.PHONY : dmx/ArtNet/dmx_output.s
+
+# target to generate assembly for a file
+dmx/ArtNet/dmx_output.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/archx_dmx.dir/build.make CMakeFiles/archx_dmx.dir/dmx/ArtNet/dmx_output.cpp.s
+.PHONY : dmx/ArtNet/dmx_output.cpp.s
 
 dmx/ArtNet/tests/artnet_packet_test.o: dmx/ArtNet/tests/artnet_packet_test.cpp.o
 .PHONY : dmx/ArtNet/tests/artnet_packet_test.o
@@ -291,6 +341,30 @@ dmx/ArtNet/tests/artnet_packet_test.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/artnet_packet_test.dir/build.make CMakeFiles/artnet_packet_test.dir/dmx/ArtNet/tests/artnet_packet_test.cpp.s
 .PHONY : dmx/ArtNet/tests/artnet_packet_test.cpp.s
 
+dmx/ArtNet/tests/dmx_output_test.o: dmx/ArtNet/tests/dmx_output_test.cpp.o
+.PHONY : dmx/ArtNet/tests/dmx_output_test.o
+
+# target to build an object file
+dmx/ArtNet/tests/dmx_output_test.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dmx_output_test.dir/build.make CMakeFiles/dmx_output_test.dir/dmx/ArtNet/tests/dmx_output_test.cpp.o
+.PHONY : dmx/ArtNet/tests/dmx_output_test.cpp.o
+
+dmx/ArtNet/tests/dmx_output_test.i: dmx/ArtNet/tests/dmx_output_test.cpp.i
+.PHONY : dmx/ArtNet/tests/dmx_output_test.i
+
+# target to preprocess a source file
+dmx/ArtNet/tests/dmx_output_test.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dmx_output_test.dir/build.make CMakeFiles/dmx_output_test.dir/dmx/ArtNet/tests/dmx_output_test.cpp.i
+.PHONY : dmx/ArtNet/tests/dmx_output_test.cpp.i
+
+dmx/ArtNet/tests/dmx_output_test.s: dmx/ArtNet/tests/dmx_output_test.cpp.s
+.PHONY : dmx/ArtNet/tests/dmx_output_test.s
+
+# target to generate assembly for a file
+dmx/ArtNet/tests/dmx_output_test.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dmx_output_test.dir/build.make CMakeFiles/dmx_output_test.dir/dmx/ArtNet/tests/dmx_output_test.cpp.s
+.PHONY : dmx/ArtNet/tests/dmx_output_test.cpp.s
+
 dmx/ArtNet/tools/artnet_monitor.o: dmx/ArtNet/tools/artnet_monitor.cpp.o
 .PHONY : dmx/ArtNet/tools/artnet_monitor.o
 
@@ -314,6 +388,30 @@ dmx/ArtNet/tools/artnet_monitor.s: dmx/ArtNet/tools/artnet_monitor.cpp.s
 dmx/ArtNet/tools/artnet_monitor.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/artnet_monitor.dir/build.make CMakeFiles/artnet_monitor.dir/dmx/ArtNet/tools/artnet_monitor.cpp.s
 .PHONY : dmx/ArtNet/tools/artnet_monitor.cpp.s
+
+dmx/ArtNet/tools/artnet_out.o: dmx/ArtNet/tools/artnet_out.cpp.o
+.PHONY : dmx/ArtNet/tools/artnet_out.o
+
+# target to build an object file
+dmx/ArtNet/tools/artnet_out.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/artnet_out.dir/build.make CMakeFiles/artnet_out.dir/dmx/ArtNet/tools/artnet_out.cpp.o
+.PHONY : dmx/ArtNet/tools/artnet_out.cpp.o
+
+dmx/ArtNet/tools/artnet_out.i: dmx/ArtNet/tools/artnet_out.cpp.i
+.PHONY : dmx/ArtNet/tools/artnet_out.i
+
+# target to preprocess a source file
+dmx/ArtNet/tools/artnet_out.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/artnet_out.dir/build.make CMakeFiles/artnet_out.dir/dmx/ArtNet/tools/artnet_out.cpp.i
+.PHONY : dmx/ArtNet/tools/artnet_out.cpp.i
+
+dmx/ArtNet/tools/artnet_out.s: dmx/ArtNet/tools/artnet_out.cpp.s
+.PHONY : dmx/ArtNet/tools/artnet_out.s
+
+# target to generate assembly for a file
+dmx/ArtNet/tools/artnet_out.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/artnet_out.dir/build.make CMakeFiles/artnet_out.dir/dmx/ArtNet/tools/artnet_out.cpp.s
+.PHONY : dmx/ArtNet/tools/artnet_out.cpp.s
 
 dmx/ArtNet/tools/artnet_send.o: dmx/ArtNet/tools/artnet_send.cpp.o
 .PHONY : dmx/ArtNet/tools/artnet_send.o
@@ -497,19 +595,30 @@ help:
 	@echo "... archx_hello"
 	@echo "... archx_schema"
 	@echo "... artnet_monitor"
+	@echo "... artnet_out"
 	@echo "... artnet_packet_test"
 	@echo "... artnet_send"
+	@echo "... dmx_output_test"
 	@echo "... fader_test"
 	@echo "... ofl_importer_test"
 	@echo "... dmx/ArtNet/artnet_packet.o"
 	@echo "... dmx/ArtNet/artnet_packet.i"
 	@echo "... dmx/ArtNet/artnet_packet.s"
+	@echo "... dmx/ArtNet/dmx_output.o"
+	@echo "... dmx/ArtNet/dmx_output.i"
+	@echo "... dmx/ArtNet/dmx_output.s"
 	@echo "... dmx/ArtNet/tests/artnet_packet_test.o"
 	@echo "... dmx/ArtNet/tests/artnet_packet_test.i"
 	@echo "... dmx/ArtNet/tests/artnet_packet_test.s"
+	@echo "... dmx/ArtNet/tests/dmx_output_test.o"
+	@echo "... dmx/ArtNet/tests/dmx_output_test.i"
+	@echo "... dmx/ArtNet/tests/dmx_output_test.s"
 	@echo "... dmx/ArtNet/tools/artnet_monitor.o"
 	@echo "... dmx/ArtNet/tools/artnet_monitor.i"
 	@echo "... dmx/ArtNet/tools/artnet_monitor.s"
+	@echo "... dmx/ArtNet/tools/artnet_out.o"
+	@echo "... dmx/ArtNet/tools/artnet_out.i"
+	@echo "... dmx/ArtNet/tools/artnet_out.s"
 	@echo "... dmx/ArtNet/tools/artnet_send.o"
 	@echo "... dmx/ArtNet/tools/artnet_send.i"
 	@echo "... dmx/ArtNet/tools/artnet_send.s"

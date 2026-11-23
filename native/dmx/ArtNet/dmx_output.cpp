@@ -116,6 +116,7 @@ namespace archx {
                 next_tick = now;
             }
 
+
             std::this_thread::sleep_until(next_tick);
         }
     }
