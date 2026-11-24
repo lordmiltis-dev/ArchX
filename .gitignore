@@ -23,6 +23,10 @@ out/
 CMakeUserPresets.json
 CMakeFiles/
 CMakeCache.txt
+build-*/
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
 *.o
 *.obj
 *.a
@@ -46,3 +50,6 @@ generated/
 # ---------- Betriebssystem ----------
 .DS_Store
 Thumbs.db
+
+# Kompilierte Test-Programme ohne Endung
+/native/tests/main

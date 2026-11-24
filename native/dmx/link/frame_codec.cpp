@@ -11,9 +11,10 @@ std::vector<std::uint8_t> encodeFrame(const std::uint8_t* payload, std::size_t s
   // TODO: 4 Bytes Länge, NIEDRIGSTES Byte zuerst, danach die Payload.
   //       Tipp: schreibe die Bytes einzeln mit Schieben (size >> (8 * i)) & 0xFF,
   //       dann hängt es nicht von der Byte-Reihenfolge des Rechners ab.
-  (void)payload;
-  (void)size;
-  ARCHX_TODO("encodeFrame");
+
+  if (size == 0 || size > kMaxPayloadSize) {
+    throw std::invalid_argument("Invalid frame size");
+  }
 }
 
 bool FrameDecoder::feed(const std::uint8_t* data, std::size_t size,
