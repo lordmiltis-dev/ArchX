@@ -1,3 +1,5 @@
+package patchbuilding
+
 import dev.archx.schema.Attribute
 import dev.archx.schema.ChannelDef
 import dev.archx.schema.FixtureType

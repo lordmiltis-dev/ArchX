@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""Erzeugt schema/testdata/dmx_link_vectors.txt (Referenzwerte für Kotlin UND C++).
+
+Zeilenformat ('#' = Kommentar):
+  frame|name|payload_hex|framed_hex          Rahmen: 4 Bytes Länge (LE) + Payload
+  proto|name|universe|fill_hex|wire_hex      DmxFrame mit data = 512 x fill, kanonisch (proto3)
+
+Der Encoder hier ist bewusst von Hand geschrieben und unabhängig von protobuf,
+damit die Werte als unabhängiges Orakel taugen.
+"""
+import pathlib
+import struct
+
+
+def varint(n: int) -> bytes:
+    out = bytearray()
+    while True:
+        b = n & 0x7F
+        n >>= 7
+        if n:
+            out.append(b | 0x80)
+        else:
+            out.append(b)
+            return bytes(out)
+
+
+def dmx_frame_wire(universe: int, data: bytes) -> bytes:
+    out = b""
+    if universe != 0:                      # proto3: Standardwert wird nicht geschrieben
+        out += b"\x08" + varint(universe)
+    if data:
+        out += b"\x12" + varint(len(data)) + data
+    return out
+
+
+def framed(payload: bytes) -> bytes:
+    return struct.pack("<I", len(payload)) + payload
+
+
+FRAMES = [
+    ("one_byte", b"\x2a"),
+    ("three_bytes", bytes([1, 2, 3])),
+    ("len_255", bytes(i % 251 for i in range(255))),
+    ("len_256_header_is_00_01_00_00", bytes(i % 256 for i in range(256))),
+    ("len_258_asymmetric_header_is_02_01_00_00", bytes(i % 256 for i in range(258))),
+    ("len_512_zeros", bytes(512)),
+    ("len_513", bytes([0xAB]) * 513),
+]
+
+PROTOS = [  # (name, universe, fill)
+    ("universe_0_is_omitted", 0, 0x00),
+    ("universe_1", 1, 0xFF),
+    ("universe_127_one_byte_varint", 127, 0x7F),
+    ("universe_128_two_byte_varint", 128, 0x80),
+    ("universe_255", 255, 0x55),
+    ("universe_256", 256, 0xAA),
+    ("universe_16384_three_byte_varint", 16384, 0x01),
+    ("universe_32767_max", 32767, 0xFE),
+]
+
+
+def main() -> None:
+    root = pathlib.Path(__file__).resolve().parent.parent
+    lines = [
+        "# GENERIERT von tools/gen_dmx_link_vectors.py - nicht von Hand ändern.",
+        "# frame|name|payload_hex|framed_hex",
+        "# proto|name|universe|fill_hex|wire_hex   (data = 512 x fill)",
+    ]
+    for name, payload in FRAMES:
+        lines.append(f"frame|{name}|{payload.hex()}|{framed(payload).hex()}")
+    for name, universe, fill in PROTOS:
+        wire = dmx_frame_wire(universe, bytes([fill]) * 512)
+        lines.append(f"proto|{name}|{universe}|{fill:02x}|{wire.hex()}")
+    out = root / "schema" / "testdata" / "dmx_link_vectors.txt"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("\n".join(lines) + "\n")
+    print(f"geschrieben: {out} ({len(FRAMES)} frame, {len(PROTOS)} proto)")
+
+
+if __name__ == "__main__":
+    main()

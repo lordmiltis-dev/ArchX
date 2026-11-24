@@ -1,3 +1,4 @@
+import patchbuilding.ShowBuilder
 import dev.archx.schema.Showfile
 import java.io.File
 import java.nio.ByteBuffer

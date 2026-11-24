@@ -12,11 +12,14 @@ find_package(nlohmann_json 3.2.0 REQUIRED)
 # --- Schema-Code (aus schema/*.proto), einmal gebaut und von allen Modulen genutzt ---
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS
     ${CMAKE_CURRENT_SOURCE_DIR}/../schema/fader.proto
-    ${CMAKE_CURRENT_SOURCE_DIR}/../schema/showfile.proto)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../schema/showfile.proto
+    ${CMAKE_CURRENT_SOURCE_DIR}/../schema/dmx_link.proto)
+
 
 add_library(archx_schema STATIC ${PROTO_SRCS} ${PROTO_HDRS})
 target_include_directories(archx_schema PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(archx_schema PUBLIC protobuf::libprotobuf)
+
 
 # --- Bisherige Tests ---
 add_executable(archx_hello tests/main.cpp)
@@ -65,4 +68,30 @@ target_link_libraries(archx_dmx PUBLIC Threads::Threads)
 add_executable(dmx_output_test dmx/ArtNet/tests/dmx_output_test.cpp)
 target_link_libraries(dmx_output_test PRIVATE archx_dmx)
 add_test(NAME dmx_output COMMAND dmx_output_test)
+
+
+
+
+add_library(archx_dmx_link STATIC
+        dmx/link/frame_codec.cpp
+        dmx/link/dmx_frame_proto.cpp
+        dmx/link/link_session.cpp
+        dmx/link/link_server.cpp)
+target_include_directories(archx_dmx_link PUBLIC ${CMAKE_CURRENT_LIST_DIR})
+target_compile_features(archx_dmx_link PUBLIC cxx_std_20)
+target_link_libraries(archx_dmx_link PUBLIC Threads::Threads)
+target_compile_options(archx_dmx_link PRIVATE -Wall -Wextra -pedantic)
+target_link_libraries(archx_dmx_link PUBLIC archx_schema)
+
+
+
+get_filename_component(ARCHX_VECTORS_FILE
+        ${CMAKE_CURRENT_LIST_DIR}/../schema/testdata/dmx_link_vectors.txt ABSOLUTE)
+
+foreach(t frame_codec dmx_frame_proto link_session link_server)
+    add_executable(test_${t} dmx/tests/link/test_${t}.cpp)
+    target_link_libraries(test_${t} PRIVATE archx_dmx_link)
+    target_compile_definitions(test_${t} PRIVATE ARCHX_VECTORS_PATH="${ARCHX_VECTORS_FILE}")
+    add_test(NAME link_${t} COMMAND test_${t})
+endforeach()
 

@@ -1,10 +1,12 @@
+import patchbuilding.ShowBuilder
+import patchbuilding.validateShow
 import dev.archx.schema.PatchEntry
 import dev.archx.schema.Showfile
 import dev.archx.schema.copy
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
-// Zusätzliche Tests für validateShow: mehrere Typen, mehrere Patches, Randwerte
+// Zusätzliche Tests für .validateShow: mehrere Typen, mehrere Patches, Randwerte
 class ShowValidationEdgeCasesTest {
 
     private fun validShow(): Showfile = ExampleShow().exampleShow()

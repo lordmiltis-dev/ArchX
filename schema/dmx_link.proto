@@ -1,0 +1,18 @@
+// Verbindung Master (Kotlin) -> DMX-Submaster (C++), Phase 2.4.
+// Transport: TCP auf 127.0.0.1, jede Nachricht = 4 Bytes Länge (little-endian,
+// vorzeichenlos) + Protobuf-Block. Siehe docs/step-2-4.md.
+//
+// TODO: Falls schema/ schon eine gemeinsame Datei mit syntax/package/options
+// hat, die Optionen (java_package, ...) von dort übernehmen.
+syntax = "proto3";
+
+package archx.dmxlink;
+
+// Ein kompletter Rahmen (512 Bytes) für ein Universum.
+message DmxFrame {
+  // 0..32767 (Art-Net: 15 Bit). uint32, damit der Submaster zu große Werte
+  // erkennen und ablehnen kann, statt sie stillschweigend abzuschneiden.
+  uint32 universe = 1;
+  // Genau 512 Bytes. Andere Längen lehnt der Submaster ab.
+  bytes data = 2;
+}

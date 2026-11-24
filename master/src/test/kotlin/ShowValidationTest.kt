@@ -1,3 +1,5 @@
+import patchbuilding.ShowBuilder
+import patchbuilding.validateShow
 import dev.archx.schema.PatchEntry
 import dev.archx.schema.Showfile
 import dev.archx.schema.copy
@@ -69,7 +71,7 @@ class ShowValidationTest {
         assertFailsWith<IllegalArgumentException> { validateShow(broken) }
     }
 
-    // Auch der ShowBuilder lässt einen Patch ohne Universum und Adresse nicht zu
+    // Auch der .ShowBuilder lässt einen Patch ohne Universum und Adresse nicht zu
     @Test
     fun patchFixtureRejectsMissingAddress() {
         val type = validShow().fixtureTypesList[0]

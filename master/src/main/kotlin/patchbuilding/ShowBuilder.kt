@@ -1,11 +1,11 @@
-import dev.archx.schema.Attribute
+package patchbuilding
+
 import dev.archx.schema.FixtureType
 import dev.archx.schema.PatchEntry
 import dev.archx.schema.Showfile
 import dev.archx.schema.SubFixtureSettings
 import dev.archx.schema.copy
 import dev.archx.schema.showfile
-import dev.archx.schema.Precedence
 
 open class ShowBuilder(private var showName: String = "Neue Show"): PatchBuilderHelper() {
     val fixtureTypesList = mutableListOf<FixtureType>();

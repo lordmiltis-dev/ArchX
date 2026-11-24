@@ -1,13 +1,11 @@
 package dev.archx.master
 
-import ShowBuilder
-import com.google.protobuf.boolValue
+import patchbuilding.ShowBuilder
 import dev.archx.schema.Attribute
 import dev.archx.schema.ChannelDef
 import dev.archx.schema.PatchEntry
 import dev.archx.schema.Precedence
 import dev.archx.schema.Showfile
-import dev.archx.schema.fixtureType
 
 /**
  * Rechnet aus der Show und den eingestellten Werten die DMX-Rahmen aus.

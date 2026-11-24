@@ -1,3 +1,4 @@
+import patchbuilding.validateShow
 import dev.archx.schema.Attribute
 import dev.archx.schema.FixtureType
 import dev.archx.schema.Showfile

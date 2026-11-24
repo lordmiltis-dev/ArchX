@@ -1,3 +1,4 @@
+import patchbuilding.ShowBuilder
 import dev.archx.schema.Attribute
 import dev.archx.schema.Precedence
 import dev.archx.schema.Showfile
