@@ -34,7 +34,8 @@ void LinkSession::handlePayload(const std::vector<std::uint8_t>& payload) {
 
 void LinkSession::reset() {
   // TODO: decoder_.reset(); Statistik und Sink bleiben unberührt.
-  ARCHX_TODO("LinkSession::reset");
+
+  decoder_.reset();
 }
 
 }  // namespace archx::dmx::link
