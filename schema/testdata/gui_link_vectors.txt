@@ -1,0 +1,13 @@
+# GENERIERT von tools/gen_gui_link_vectors.py - nicht von Hand ändern.
+# cmd|name|patch|attr|value|wire_hex   changed|name|patch|attr|value|wire_hex   view|name|spec|wire_hex
+cmd|set_basic|7|Rot|0.5|0a0c08071203526f741d0000003f
+cmd|set_patch_0_is_omitted|0|Rot|0.5|0a0a1203526f741d0000003f
+cmd|set_value_0_is_omitted|3|Gruen|0.0|0a0908031205477275656e
+cmd|set_patch_300_two_byte_varint|300|Blau|1.0|0a0e08ac021204426c61751d0000803f
+changed|changed_basic|1|Rot|0.25|120c08011203526f741d0000803e
+changed|changed_value_0_is_omitted|2|Dimmer|0.0|120a0802120644696d6d6572
+view|view_empty|-|0a00
+view|view_one_rgb|1:Par1:0:1:Rot=1,Gruen=0.5,Blau=0|0a2e0a2c080112045061723120012a0a0a03526f74150000803f2a0c0a05477275656e150000003f2a060a04426c6175
+view|view_two_fixtures|1:Par1:0:1:Rot=0;2:Par2:1:512:Dimmer=0.25|0a310a11080112045061723120012a050a03526f740a1c080212045061723218012080042a0d0a0644696d6d6572150000803e
+view|view_fixture_without_attributes|5:Nebel:0:100:|0a0d0a0b080512054e6562656c2064
+view|view_all_defaults_omitted|0::0:0:|0a020a00

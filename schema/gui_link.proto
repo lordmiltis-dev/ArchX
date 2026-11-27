@@ -1,0 +1,57 @@
+// Verbindung GUI-Submaster <-> Master (Phase 2.5).
+// Transport: TCP auf 127.0.0.1, jede Nachricht = 4 Bytes Länge (little-endian,
+// vorzeichenlos) + Protobuf-Block, wie bei dmx_link.proto (siehe docs/step-2-4.md).
+//
+// Grundsatz: Die GUI kennt NICHT das Showfile-Format. Der Master schickt ihr eine
+// Sicht (View) auf die Show, die GUI schickt nur Bedienbefehle zurück.
+syntax = "proto3";
+
+package archx.guilink;
+
+option java_multiple_files = true;
+option java_package = "archx.guilink.proto";
+
+// ---------------------------------------------------------------- GUI -> Master
+message GuiToMaster {
+  oneof msg {
+    SetValue set_value = 1;
+  }
+}
+
+// Ein Regler wurde bewegt. value: 0.0 .. 1.0 (wie im ValueEngine des Masters).
+message SetValue {
+  uint32 patch_id = 1;
+  string attribute = 2;   // z. B. "Rot", "Dimmer"
+  float value = 3;
+}
+
+// ---------------------------------------------------------------- Master -> GUI
+message MasterToGui {
+  oneof msg {
+    ShowView show_view = 1;          // kompletter Stand, direkt nach dem Verbinden
+    ValueChanged value_changed = 2;  // ein Wert hat sich geändert (z. B. durch ein Pult)
+  }
+}
+
+message ShowView {
+  repeated FixtureView fixtures = 1;
+}
+
+message FixtureView {
+  uint32 patch_id = 1;
+  string name = 2;
+  uint32 universe = 3;
+  uint32 address = 4;
+  repeated AttributeView attributes = 5;
+}
+
+message AttributeView {
+  string name = 1;
+  float value = 2;   // 0.0 .. 1.0
+}
+
+message ValueChanged {
+  uint32 patch_id = 1;
+  string attribute = 2;
+  float value = 3;
+}
