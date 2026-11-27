@@ -16,9 +16,22 @@ bool LinkSession::onBytes(const std::uint8_t* data, std::size_t size) {
   //       3. JEDE fertige Payload der Reihe nach an handlePayload() geben
   //          (auch wenn feed() false lieferte: Rahmen vor dem Fehler zählen).
   //       4. Bei false: ++stats_.framingErrors, return false. Sonst true.
-  (void)data;
-  (void)size;
-  ARCHX_TODO("LinkSession::onBytes");
+  if (decoder_.failed()) {
+    return false;
+  }
+
+  std::vector<std::vector<std::uint8_t>> payloads;
+  const bool ok = decoder_.feed(data, size, payloads);
+
+  for (const auto& payload : payloads) {
+    handlePayload(payload);
+  }
+
+  if (!ok) {
+    ++stats_.framingErrors;
+    return false;
+  }
+  return true;
 }
 
 void LinkSession::handlePayload(const std::vector<std::uint8_t>& payload) {
@@ -27,14 +40,28 @@ void LinkSession::handlePayload(const std::vector<std::uint8_t>& payload) {
   //  - universe > kMaxUniverse oder data.size() != kUniverseSize
   //                                             -> ++stats_.framesInvalid
   //  - sonst in UniverseData kopieren, sink_.setFrame(...), ++framesApplied
-  (void)payload;
-  (void)sink_;
-  ARCHX_TODO("LinkSession::handlePayload");
+
+  const std::optional<DmxFrame> frame = parser_(payload.data(), payload.size());
+
+  if (!frame.has_value()) {
+    ++stats_.framesMalformed;
+    return;
+  }
+
+  if (frame->universe > kMaxUniverse || frame->data.size() != kUniverseSize) {
+    ++stats_.framesInvalid;
+    return;
+  }
+
+  UniverseData data;
+  std::copy(frame->data.begin(), frame->data.end(), data.begin());
+
+  sink_.setFrame(static_cast<std::uint16_t>(frame->universe), data);
+  ++stats_.framesApplied;
 }
 
 void LinkSession::reset() {
   // TODO: decoder_.reset(); Statistik und Sink bleiben unberührt.
-
   decoder_.reset();
 }
 

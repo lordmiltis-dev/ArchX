@@ -20,6 +20,19 @@ object FrameCodec {
         //       aber ByteBuffer.order(ByteOrder.LITTLE_ENDIAN) wäre auch ok.
         // Tipp: ByteArray(HEADER_SIZE + payload.size) anlegen und
         //       payload.copyInto(ziel, HEADER_SIZE).
-        TODO("FrameCodec.encode")
+
+        require(payload.size in 1..MAX_PAYLOAD_SIZE){
+            "payload size must be between 1 and $MAX_PAYLOAD_SIZE"
+        }
+
+        val frame = ByteArray(HEADER_SIZE + payload.size)
+
+        for (i in 0 until HEADER_SIZE) {
+            frame[i] = ((payload.size shr (8*i)) and  0xFF).toByte()
+        }
+
+        payload.copyInto(frame, HEADER_SIZE)
+
+        return frame
     }
 }

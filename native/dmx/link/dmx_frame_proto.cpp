@@ -1,10 +1,10 @@
 #include "dmx/include/link/dmx_frame_proto.h"
-#include "cmake-build-debug/dmx_link.pb.h"
-#include "dmx/include/link/todo.h"
+#include "dmx_link.pb.h"
 
-// TODO: schema/dmx_link.proto in den C++-Build einbinden (protoc-Aufruf in
-//       CMake, Ausgabe in den Build-Ordner, nicht ins Repo) und hier
-//       #include "dmx_link.pb.h" aktivieren.
+
+#include <limits>
+#include <stdexcept>
+#include <string>
 
 namespace archx::dmx::link {
 

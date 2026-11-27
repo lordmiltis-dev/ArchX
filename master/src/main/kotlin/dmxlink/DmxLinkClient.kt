@@ -1,7 +1,15 @@
 package archx.master.dmxlink
 
+import archx.dmxlink.DmxLink
+import archx.master.dmxlink.DmxFrameProto.MAX_UNIVERSE
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.util.TreeMap
 import java.util.TreeSet
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.thread
 
 /**
  * Sendet DMX-Rahmen vom Master an den DMX-Submaster (TCP 127.0.0.1, siehe docs/step-2-4.md).
@@ -38,6 +46,7 @@ class DmxLinkClient(
     private var started = false
     private var closed = false
     @Volatile private var connected = false
+    @Volatile private var socket: java.net.Socket? = null
     private var worker: Thread? = null
 
     /** true, solange eine TCP-Verbindung steht (best effort, nur zur Anzeige). */
@@ -50,7 +59,15 @@ class DmxLinkClient(
      */
     fun start() {
         // TODO: Zustand prüfen (ISE), Thread anlegen und starten, der run() ausführt.
-        TODO("DmxLinkClient.start")
+        synchronized(lock) {
+            check(!closed) { "sender is already closed" }
+            check(!started) { "sender is already started" }
+            started = true
+            worker = Thread(::run).apply {
+                isDaemon = true
+                start()
+            }
+        }
     }
 
     /**
@@ -65,16 +82,41 @@ class DmxLinkClient(
         //          egal, beides wird getestet, aber nicht zusammen).
         //       2. data.copyOf(), unter lock in latest ablegen, universe in dirty,
         //          lock.notifyAll().
-        TODO("DmxLinkClient.sendFrame")
+
+        require(universe in 0..MAX_UNIVERSE){
+            "universe must be in 0..$MAX_UNIVERSE, but was $universe"
+        }
+
+        require(data.size == 512){
+            "data size must be in 512 range [${512 - data.size}]"
+        }
+
+        synchronized(lock) {
+            check(!closed) { "sender is already closed" }
+
+            latest[universe] = data.copyOf()
+            dirty += universe
+            lock.notifyAll()
+        }
+
     }
 
     override fun close() {
         // TODO: Idempotent. closed = true, Socket schließen (weckt blockierte Reads/Writes),
         //       lock.notifyAll(), Thread joinen (mit Zeitlimit, z.B. 2 s).
         //       Darf nicht werfen, auch nicht beim zweiten Aufruf.
+        synchronized(lock) {
+            if (closed) {
+                return
+            }
+            closed = true
+            lock.notifyAll()
+        }
+        runCatching { socket?.close() }
+        worker?.join(2000)
     }
 
-    private fun run() {
+
         // TODO: Schleife bis closed:
         //   1. Socket verbinden (127.0.0.1:port, Timeout setzen). Fehler -> reconnectDelayMs
         //      warten (lock.wait(reconnectDelayMs), damit close() es aufwecken kann).
@@ -87,7 +129,105 @@ class DmxLinkClient(
         //   5. Bei IOException: connected = false, Socket schließen, zurück zu 1.
         //      Der Rahmen, bei dem es schiefging, bleibt in latest (wird beim
         //      nächsten Verbinden ohnehin erneut gesendet).
-        //   6. In finally: connected = false.
-        // Achtung Falle: Nicht unter dem lock schreiben/lesen, sonst blockiert sendFrame.
+        private fun run() {
+            while (!isClosed()) {
+                val s = Socket()
+                socket = s
+                try {
+                    s.connect(InetSocketAddress(host, port), 5000)
+                    if (isClosed()) break
+                    connected = true
+
+                    val peerGone = java.util.concurrent.atomic.AtomicBoolean(false)
+                    watchForPeerClose(s, peerGone)
+
+                    sendAllLatest(s)
+
+                    while (true) {
+                        val stop = synchronized(lock) {
+                            while (!closed && !peerGone.get() && dirty.isEmpty()) {
+                                lock.wait()
+                            }
+                            closed || peerGone.get()
+                        }
+                        if (stop) break
+                        sendDirtyFrames(s)
+                    }
+                } catch (_: IOException) {
+                    // Verbinden oder Schreiben fehlgeschlagen, oder close() hat den Socket zugemacht
+                } finally {
+                    connected = false
+                    runCatching { s.close() }
+                }
+                waitReconnectDelay()
+            }
+            socket = null
+        }
+
+        private fun isClosed(): Boolean = synchronized(lock) { closed }
+
+        private fun watchForPeerClose(s: Socket, peerGone: AtomicBoolean) {
+            thread(isDaemon = true, name = "dmx-link-reader") {
+                try {
+                    val input = s.getInputStream()
+                    while (input.read() != -1) {
+                        // Der Submaster sendet noch nichts zurück; Daten werden ignoriert.
+                    }
+                } catch (_: IOException) {
+                    // Socket wurde geschlossen (von uns oder vom Peer)
+                }
+                peerGone.set(true)
+                synchronized(lock) { lock.notifyAll() }
+            }
+        }
+
+        private fun waitReconnectDelay() {
+            val deadline = System.nanoTime() + reconnectDelayMs * 1_000_000
+            synchronized(lock) {
+                while (!closed) {
+                    val remainingMs = (deadline - System.nanoTime()) / 1_000_000
+                    if (remainingMs <= 0) break
+                    lock.wait(remainingMs)
+                }
+            }
+        }
+
+    private fun sendAllLatest(s: Socket) {
+        val frames = synchronized(lock) {
+            val copy = latest.map { (u, d) -> u to d }
+            dirty.clear()
+            copy
+        }
+        if (frames.isNotEmpty()) writeFrames(s, frames)
+    }
+
+    private fun sendDirtyFrames(s: Socket) {
+        val frames = mutableListOf<Pair<Int, ByteArray>>()
+
+        synchronized(lock) {
+            for (universe in dirty) {
+                latest[universe]?.let { data ->
+                    frames += universe to data
+                }
+            }
+
+            dirty.clear()
+        }
+
+        if (frames.isEmpty()) {
+            return
+        }
+
+        writeFrames(s, frames)
+    }
+
+    private fun writeFrames(s: Socket, frames: List<Pair<Int, ByteArray>>) {
+        val payload = ByteArrayOutputStream()
+        for ((universe, data) in frames) {
+            payload.write(FrameCodec.encode(serializer(universe, data)))
+        }
+        val output = s.getOutputStream()
+        output.write(payload.toByteArray())
+        output.flush()
     }
 }

@@ -1,5 +1,9 @@
 package archx.master.dmxlink
 
+import archx.dmxlink.DmxLink
+import com.google.protobuf.ByteString
+import java.util.Arrays
+
 /**
  * Serialisiert archx.dmxlink.DmxFrame (schema/dmx_link.proto).
  *
@@ -11,6 +15,8 @@ object DmxFrameProto {
     const val UNIVERSE_SIZE = 512
     const val MAX_UNIVERSE = 32_767
 
+
+
     /**
      * Kanonische proto3-Serialisierung ([universe] 0 wird nicht geschrieben).
      *
@@ -21,6 +27,22 @@ object DmxFrameProto {
         // TODO: require(universe in 0..MAX_UNIVERSE), require(data.size == UNIVERSE_SIZE)
         // TODO: DmxFrame.newBuilder()....build().toByteArray()
         //       Bei protobuf-kotlin: ByteString.copyFrom(data) kopiert, das ist hier gewollt.
-        TODO("DmxFrameProto.serialize")
+
+
+        require(universe in 0..MAX_UNIVERSE){
+            "universe must be in 0..$MAX_UNIVERSE, but was $universe"
+        }
+
+        require(data.size == UNIVERSE_SIZE){
+            "data must contain exactly $UNIVERSE_SIZE bytes, but contained ${data.size}"
+        }
+
+
+        return DmxLink.DmxFrame.newBuilder()
+            .setUniverse(universe)
+            .setData(ByteString.copyFrom(data))
+            .build()
+            .toByteArray()
+
     }
 }

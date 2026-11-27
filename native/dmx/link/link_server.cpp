@@ -136,6 +136,7 @@ void LinkServer::run() {
 
     const int ready = poll(fds, nfds, -1);
     if (ready < 0) {
+
       if (errno == EINTR) {
         continue;
       }
@@ -144,6 +145,7 @@ void LinkServer::run() {
 
 
     if (fds[0].revents & POLLIN) {
+      std::fprintf(stderr, "break: Wecker\n");
       break;
     }
 
@@ -154,8 +156,8 @@ void LinkServer::run() {
         session.reset();
         ++accepted_;
       }
+      continue;
     }
-
     if (nfds == 3 && (fds[2].revents & (POLLIN | POLLHUP | POLLERR))) {
       std::uint8_t buffer[4096];
       const ssize_t n = recv(clientFd.get(), buffer, sizeof(buffer), 0);
@@ -164,16 +166,15 @@ void LinkServer::run() {
         if (!session.onBytes(buffer, static_cast<std::size_t>(n))) {
           clientFd.reset();
         }
-      }else if (n == 0) {
+      } else if (n == 0) {
+        clientFd.reset();
+      } else if (errno != EINTR) {
         clientFd.reset();
       }
-    }else if (errno != EINTR) {
-      clientFd.reset();
     }
 
+
   }
-
-
-}
+  }
 
 }  // namespace archx::dmx::link
