@@ -1,6 +1,7 @@
+// Provides a test-visible exception for functions that are not implemented yet.
+// The test runner reports unimplemented cases instead of allowing them to crash.
+
 #pragma once
-// Hilfe: Platzhalter für noch nicht implementierte Funktionen.
-// Die Tests melden eine NotImplemented-Ausnahme als "TODO" (nicht als Absturz).
 #include <stdexcept>
 #include <string>
 

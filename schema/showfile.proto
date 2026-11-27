@@ -1,3 +1,4 @@
+// Defines the persisted show, fixture patch, and channel metadata structures.
 syntax = "proto3";
 
 package archx;
@@ -5,71 +6,71 @@ package archx;
 option java_package = "dev.archx.schema";
 option java_multiple_files = true;
 
-// Das gesamte Showfile (Stand Phase 1: nur Patch)
+// A show contains its fixture definitions and the patches that use them.
 message Showfile {
-  string name = 1;                          // Name der Show
-  repeated FixtureType fixture_types = 2;   // Alle Fixture-Typen, die diese Show benutzt (Kopie aus der Library)
-  repeated PatchEntry patch = 3;            // Die Patch-Liste
-  uint32 next_patch_id = 4;                 // Nächste freie interne ID
+  string name = 1;                          // Display name of the show.
+  repeated FixtureType fixture_types = 2;   // Fixture definitions copied from the source library.
+  repeated PatchEntry patch = 3;            // Fixtures assigned to DMX universes and addresses.
+  uint32 next_patch_id = 4;                 // Next internal patch ID to allocate.
 }
 
-// Ein Eintrag der Patch-Liste = ein Fixture auf der Bühne
+// One fixture instance assigned to the stage.
 message PatchEntry {
-  uint32 id = 1;               // Interne ID für den Master. Eindeutig und nie wiederverwendet
-  uint32 fixture_number = 2;   // Nummer, die der Nutzer sieht und eintippt (Spalte "ID" in Onyx), änderbar
-  string name = 3;             // Name des Patches
-  uint32 fixture_type_id = 4;  // Verweis auf FixtureType.id in dieser Show
-  uint32 universe = 5;         // Internes Universum, ab 1. 0 bedeutet: nicht gepatcht
-  uint32 address = 6;          // Startadresse im Universum, 1 bis 512. 0 bedeutet: nicht gepatcht
-  bool virtual_dimmer = 7;     // true: Der Master berechnet die Helligkeit über die Farbkanäle
-  bool invert_pan = 8;         // Pan umkehren
-  bool invert_tilt = 9;        // Tilt umkehren
-  repeated SubFixtureSettings sub_fixtures = 10;  // Einstellungen einzelner Zellen, nur für abweichende Werte
+  uint32 id = 1;               // Unique internal ID; allocated IDs are never reused.
+  uint32 fixture_number = 2;   // User-visible fixture number, editable independently of the internal ID.
+  string name = 3;             // Name of this patch.
+  uint32 fixture_type_id = 4;  // References a FixtureType.id in this show.
+  uint32 universe = 5;         // One-based universe; zero means the fixture is unpatched.
+  uint32 address = 6;          // One-based start address in the universe; zero means unpatched.
+  bool virtual_dimmer = 7;     // Derive intensity by scaling the fixture's color channels.
+  bool invert_pan = 8;         // Invert the pan direction.
+  bool invert_tilt = 9;        // Invert the tilt direction.
+  repeated SubFixtureSettings sub_fixtures = 10;  // Per-cell overrides; only differing values need entries.
 }
 
-// Einstellungen einer einzelnen Zelle eines Patches (z.B. ein Kopf eines Multi-Moving-Heads)
+// Settings that override pan or tilt behavior for one cell of a patched fixture.
 message SubFixtureSettings {
-  uint32 index = 1;            // Nummer der Zelle, ab 1 (passt zu SubFixtureDef.index)
+  uint32 index = 1;            // One-based cell index matching SubFixtureDef.index.
   bool invert_pan = 2;
   bool invert_tilt = 3;
 }
 
-// Beschreibt einen Fixture-Typ in einem bestimmten Modus
+// Describes a fixture mode, including its channels and optional independently controlled cells.
 message FixtureType {
-  uint32 id = 1;                 // ID innerhalb dieser Show
-  string manufacturer = 2;       // Hersteller
-  string name = 3;               // Name des Fixtures in der Library
-  string mode_name = 4;          // Name des Modus, z.B. "16 Kanal"
-  string library_key = 5;        // Schlüssel des Profils innerhalb der Library (zusammen mit library_source eindeutig)
-  uint32 channel_count = 6;      // Anzahl der DMX-Kanäle, die dieser Modus belegt
-  repeated ChannelDef channels = 7;          // Gemeinsame Kanäle des ganzen Fixtures (Pan, Tilt, Dimmer, Strobe ...)
-  repeated SubFixtureDef sub_fixtures = 8;   // Einzeln steuerbare Zellen (z.B. LED-Leiste), leer bei normalen Fixtures
-  string library_source = 9;     // Welche Library bzw. Library-Extension das Profil lieferte (z.B. "onyx")
-  string library_revision = 10;  // Stand des Profils in der Library (Version oder Prüfsumme), um Änderungen zu erkennen
+  uint32 id = 1;                 // ID within this show.
+  string manufacturer = 2;       // Fixture manufacturer.
+  string name = 3;               // Fixture name in the source library.
+  string mode_name = 4;          // Mode name, for example "16-channel".
+  string library_key = 5;        // Profile key, unique together with library_source.
+  uint32 channel_count = 6;      // Number of DMX slots occupied by this mode.
+  repeated ChannelDef channels = 7;          // Channels shared by the complete fixture, such as pan or dimmer.
+  repeated SubFixtureDef sub_fixtures = 8;   // Independently controlled cells; empty for ordinary fixtures.
+  string library_source = 9;     // Library or extension that supplied the profile, such as "onyx".
+  string library_revision = 10;  // Profile version or checksum used to detect library changes.
 }
 
-// Ein Kanal und wofür er genutzt wird
+// Describes the role and DMX offsets of one fixture channel.
 message ChannelDef {
-  uint32 offset = 1;          // Position vom Anfang des ganzen Fixtures, ab 1 (auch bei Kanälen einer Zelle)
-  Attribute attribute = 2;    // Wofür der Kanal da ist
-  uint32 fine_offset = 3;     // Zweiter Kanal für 16 Bit (z.B. Pan fein). 0 bedeutet: keiner
-  string name = 4;            // Name des Kanals laut Library, z.B. "Pan" oder "Frame 2A"
-  uint32 default_value = 5;   // Wert, den der Kanal ausgibt, wenn nichts gesteuert wird (z.B. Pan/Tilt in der Mitte). 0 = nicht gesetzt.
-                              // In der Auflösung des Kanals: 8 Bit = 0 bis 255, mit Fine-Kanal 16 Bit = 0 bis 65535
-  uint32 highlight_value = 6; // Wert für "Highlight" (Fixture sichtbar machen). 0 = nicht gesetzt, gleiche Auflösung wie default_value
-  Precedence precedence = 7;  // Wie mehrere Quellen für diesen Kanal zusammengeführt werden
+  uint32 offset = 1;          // One-based offset from the start of the complete fixture.
+  Attribute attribute = 2;    // Function controlled by this channel.
+  uint32 fine_offset = 3;     // Optional second offset for 16-bit control; zero means no fine channel.
+  string name = 4;            // Channel name from the library, such as "Pan" or "Frame 2A".
+  uint32 default_value = 5;   // Output when no source controls the channel; zero means unset.
+                              // Values use the channel resolution: 0..255 for 8-bit or 0..65535 for 16-bit.
+  uint32 highlight_value = 6; // Optional highlight output in the same resolution as default_value.
+  Precedence precedence = 7;  // Rule for combining multiple sources that control this channel.
 }
 
-// Eine einzeln steuerbare Zelle eines Fixtures (z.B. ein Segment einer LED-Leiste)
+// One independently controlled cell of a fixture, such as an LED segment.
 message SubFixtureDef {
-  uint32 index = 1;                  // Nummer der Zelle im Fixture, ab 1
-  string name = 2;                   // Name der Zelle
-  repeated ChannelDef channels = 3;  // Kanäle dieser Zelle (z.B. Rot, Grün, Blau; bei Moving-Head-Zellen auch Pan und Tilt)
-  float pos_x = 4;                   // Lage der Zelle im Fixture, für das Pixel-Mapping
-  float pos_y = 5;
+  uint32 index = 1;                  // One-based cell index within the fixture.
+  string name = 2;                   // Display name of the cell.
+  repeated ChannelDef channels = 3;  // Cell-specific channels, such as RGB or pan and tilt.
+  float pos_x = 4;                   // Horizontal fixture-relative position for pixel mapping.
+  float pos_y = 5;                   // Vertical fixture-relative position for pixel mapping.
 }
 
-// Funktionen, die ein Kanal haben kann
+// Functions that a fixture channel can control.
 enum Attribute {
   ATTRIBUTE_UNSPECIFIED = 0;
   ATTRIBUTE_INTENSITY = 1;
@@ -105,9 +106,9 @@ enum Attribute {
   ATTRIBUTE_FRAMING_ROTATION = 31;
 }
 
-// Wie der Master mehrere Quellen für einen Kanal zusammenführt
+// Rule used by the master to combine values from multiple sources.
 enum Precedence {
-  PRECEDENCE_UNSPECIFIED = 0;  // Standard je nach Attribut (Intensität: HTP, sonst LTP)
-  PRECEDENCE_HTP = 1;          // Highest Takes Precedence: der höchste Wert gewinnt
-  PRECEDENCE_LTP = 2;          // Latest Takes Precedence: der zuletzt gesetzte Wert gewinnt
+  PRECEDENCE_UNSPECIFIED = 0;  // Defaults to HTP for intensity and LTP for other attributes.
+  PRECEDENCE_HTP = 1;          // Highest Takes Precedence: the highest value wins.
+  PRECEDENCE_LTP = 2;          // Latest Takes Precedence: the most recently set value wins.
 }

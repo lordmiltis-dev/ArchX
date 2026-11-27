@@ -1,3 +1,4 @@
+// Resolves values from multiple sources into complete DMX universe frames.
 package dev.archx.master
 
 import patchbuilding.ShowBuilder
@@ -8,21 +9,17 @@ import dev.archx.schema.Precedence
 import dev.archx.schema.Showfile
 
 /**
- * Rechnet aus der Show und den eingestellten Werten die DMX-Rahmen aus.
- *
- * Werte sind Zahlen von 0.0 bis 1.0. Mehrere Quellen (source) dürfen Werte für denselben Parameter
- * liefern. Der Parameter wird bestimmt durch: Patch, Zelle und Attribut.
- *
- * Zelle 0 bedeutet: die gemeinsamen Kanäle des Fixtures. Zelle 1, 2, ... sind die Zellen des Typs
- * (SubFixtureDef.index).
+ * Computes DMX frames from a show and the values supplied by control sources.
+ * Values range from 0.0 to 1.0; targets are identified by patch, cell, and attribute.
+ * Cell 0 refers to shared fixture channels; positive cells use SubFixtureDef.index.
  */
- class ValueEngine(val show: Showfile) {
+class ValueEngine(val show: Showfile) {
     val attributeSet = mutableSetOf<Attribute>()
     private var updateCounter = 0L
     private val activeValues = mutableMapOf<TargetKey, MutableMap<Int, SourceEntry>>()
 
 
-    /** Übernimmt eine Show. Alle bisher eingestellten Werte werden gelöscht. */
+    /** Loads the show and clears all values that were previously set. */
     fun load() {
         activeValues.clear()
         updateCounter = 0L
@@ -34,10 +31,9 @@ import dev.archx.schema.Showfile
 
 
     /**
-     * Stellt einen Wert ein. Der Wert wird auf 0.0 bis 1.0 begrenzt.
-     * Wirft IllegalArgumentException, wenn es den Patch oder die Zelle nicht gibt oder der Patch
-     * in diesem Bereich keinen Kanal mit diesem Attribut hat.
-     * Ausnahme: ATTRIBUTE_INTENSITY ist bei einem Patch mit virtualDimmer auch ohne Dimmerkanal erlaubt.
+     * Sets a source value, clamped to the normalized range 0.0..1.0.
+     * Throws IllegalArgumentException when the patch, cell, or channel attribute is invalid.
+     * Virtual-dimmer intensity is allowed even when the fixture has no physical dimmer channel.
      */
     fun setValue(source: Int, patchId: Int, attribute: Attribute, value: Float, cell: Int = 0) {
         val fixtureTypesList = show.fixtureTypesList
@@ -77,7 +73,7 @@ import dev.archx.schema.Showfile
         )
     }
 
-    /** Entfernt den Wert einer Quelle. Wurde nie ein Wert gesetzt, passiert nichts. */
+    /** Removes a source value; clearing a value that was never set is harmless. */
     fun clearValue(source: Int, patchId: Int, attribute: Attribute, cell: Int = 0) {
         val key = TargetKey(patchId, cell, attribute)
         val sourcesForTarget = activeValues[key] ?: return
@@ -90,8 +86,8 @@ import dev.archx.schema.Showfile
     }
 
     /**
-     * Der Rahmen eines Universums: immer genau 512 Bytes. Index 0 ist die DMX-Adresse 1.
-     * Gibt es im Universum keinen Patch, sind alle Bytes 0.
+     * Builds a 512-byte frame for one universe; index 0 represents DMX address 1.
+     * Universes without patches produce an all-zero frame.
      */
     fun frame(universe: Int): ByteArray {
         val dmxFrame = ByteArray(512)
@@ -103,7 +99,7 @@ import dev.archx.schema.Showfile
         for (patch in patchesInUniverse) {
             val fixtureType = typesById[patch.fixtureTypeId] ?: continue
 
-            // Virtual Dimmer Faktor ermitteln (1.0f wenn nicht aktiv; 0.0f wenn aktiv aber kein Wert gesetzt)
+            // Resolve the virtual-dimmer factor: 1.0 when inactive, or 0.0 when active without a value.
             val vDimmerFactor = if (patch.virtualDimmer) {
                 resolveValue(
                     patchId = patch.id,
@@ -115,12 +111,12 @@ import dev.archx.schema.Showfile
                 1.0f
             }
 
-            // 1. Gemeinsame Kanäle des Fixtures verarbeiten (cell = 0)
+            // 1. Process channels shared by the fixture (cell = 0).
             for (channel in fixtureType.channelsList) {
                 writeChannelToFrame(dmxFrame, patch, channel, cell = 0, vDimmerFactor = vDimmerFactor)
             }
 
-            // 2. Kanäle der einzelnen Zellen verarbeiten (cell = subFixture.index)
+            // 2. Process channels belonging to each cell (cell = subFixture.index).
             for (subFixture in fixtureType.subFixturesList) {
                 for (channel in subFixture.channelsList) {
                     writeChannelToFrame(dmxFrame, patch, channel, cell = subFixture.index, vDimmerFactor = vDimmerFactor)
@@ -140,7 +136,7 @@ import dev.archx.schema.Showfile
         cell: Int,
         vDimmerFactor: Float
     ) {
-        // 1. Precedence bestimmen (PRECEDENCE_UNSPECIFIED -> Intensität ist HTP, alles andere LTP)
+        // 1. Select precedence: unspecified intensity uses HTP; other unspecified attributes use LTP.
         val effectivePrecedence = when (channel.precedence) {
             Precedence.PRECEDENCE_HTP -> Precedence.PRECEDENCE_HTP
             Precedence.PRECEDENCE_LTP -> Precedence.PRECEDENCE_LTP
@@ -151,10 +147,10 @@ import dev.archx.schema.Showfile
             }
         }
 
-        // 2. Aktiven Wert (0.0f..1.0f) aus den Quellen ermitteln
+        // 2. Resolve the active normalized value from all sources.
         val activeFloat = resolveValue(patch.id, cell, channel.attribute, effectivePrecedence)
 
-        // 3. Skalierung durch Virtual Dimmer (nur für Farbkanäle, wenn virtualDimmer aktiv ist)
+        // 3. Apply the virtual dimmer to color channels when enabled.
         val isColorChannel = channel.attribute in setOf(
             Attribute.ATTRIBUTE_RED,
             Attribute.ATTRIBUTE_GREEN,
@@ -170,7 +166,7 @@ import dev.archx.schema.Showfile
         val is16Bit = channel.fineOffset > 0
         val maxRawValue = if (is16Bit) 65535 else 255
 
-        // 4. Endgültigen Ganzzahlwert (0..255 oder 0..65535) berechnen
+        // 4. Convert the final value to an 8-bit or 16-bit integer.
         val rawValue: Int = if (activeFloat != null) {
             val scaledFloat = if (patch.virtualDimmer && isColorChannel) {
                 activeFloat * vDimmerFactor
@@ -179,11 +175,11 @@ import dev.archx.schema.Showfile
             }
             Math.round(scaledFloat * maxRawValue).coerceIn(0, maxRawValue)
         } else {
-            // Kein aktiver Wert gesetzt -> defaultValue aus dem Schema verwenden
+            // No active value is set; use the schema default value.
             channel.defaultValue.coerceIn(0, maxRawValue)
         }
 
-        // 5. In das 512-Byte-Array schreiben (Adresse und Offset sind 1-basiert)
+        // 5. Write bytes into the 512-byte frame; DMX addresses and channel offsets are one-based.
         val coarseIndex = (patch.address - 1) + (channel.offset - 1)
         if (coarseIndex in 0..511) {
             if (is16Bit) {

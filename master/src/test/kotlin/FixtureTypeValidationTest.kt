@@ -1,3 +1,4 @@
+// Tests validation of fixture channel offsets, cell indexes, and channel counts.
 import patchbuilding.validateShow
 import dev.archx.schema.Attribute
 import dev.archx.schema.FixtureType
@@ -11,14 +12,14 @@ import dev.archx.schema.subFixtureDef
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
-// Tests für die Regeln, die den Fixture-Typ selbst betreffen.
-// Jeder ungültige Test verletzt genau EINE Regel, damit ein grüner Test auch wirklich
-// von dieser Regel kommt und nicht von einer anderen.
+// Tests the validation rules that apply to fixture types.
+// Each invalid fixture violates exactly one rule so failures identify the rule under test.
+
 class FixtureTypeValidationTest {
 
-    // Ein Typ mit 7 Kanälen: ein gemeinsamer Kanal (Position 1) und zwei Zellen.
-    // Zelle 1 belegt die Positionen 2 bis 4, Zelle 2 die Positionen 5 bis 7.
-    // Über die Parameter lässt sich genau eine Eigenschaft verändern.
+    // A seven-channel type with one shared channel and two cells.
+    // Cell 1 uses offsets 2..4; cell 2 uses offsets 5..7.
+    // Parameters allow each test to change a single property.
     private fun typeWith(
         count: Int = 7,
         sharedOffsets: List<Int> = listOf(1),
@@ -56,7 +57,7 @@ class FixtureTypeValidationTest {
         }
     }
 
-    // Eine Show mit diesem Typ und einem Patch auf Universum 1, Adresse 1
+    // Build a show with this fixture type patched at universe 1, address 1.
     private fun showWith(type: FixtureType): Showfile = showfile {
         name = "Typtest"
         fixtureTypes += type
@@ -71,22 +72,22 @@ class FixtureTypeValidationTest {
         nextPatchId = 2
     }
 
-    // ----- gültige Typen -----
+    // ----- Valid fixture types -----
 
     @Test
     fun typeWithCellsIsValid() {
         validateShow(showWith(typeWith()))
     }
 
-    // Der Feinkanal liegt auf Position 8 und damit im Typ (8 Kanäle)
+    // The fine channel at offset 8 is valid when the type has eight channels.
     @Test
     fun fineChannelInsideTheTypeIsValid() {
         validateShow(showWith(typeWith(count = 8, fineOfFirstShared = 8)))
     }
 
-    // ----- Kanalzahl -----
+    // Channel count
 
-    // Ein Typ ohne Kanäle und mit der Kanalzahl 0 ergibt keinen sinnvollen Adressbereich
+    // A fixture type with zero channels has no valid DMX address range.
     @Test
     fun channelCountZeroIsRejected() {
         val type = typeWith(
@@ -98,83 +99,83 @@ class FixtureTypeValidationTest {
         assertFailsWith<IllegalArgumentException> { validateShow(showWith(type)) }
     }
 
-    // ----- Positionen im Typ -----
+    // Offsets within the type
 
-    // Position 8 gibt es bei 7 Kanälen nicht
+    // Offset 8 is outside a seven-channel type.
     @Test
     fun offsetAboveChannelCountIsRejected() {
         val type = typeWith(count = 7, sharedOffsets = listOf(8))
         assertFailsWith<IllegalArgumentException> { validateShow(showWith(type)) }
     }
 
-    // Positionen zählen ab 1, die 0 ist ungültig
+    // Offsets are one-based, so zero is invalid.
     @Test
     fun offsetZeroIsRejected() {
         val type = typeWith(sharedOffsets = listOf(0))
         assertFailsWith<IllegalArgumentException> { validateShow(showWith(type)) }
     }
 
-    // Der Feinkanal liegt auf Position 9, der Typ hat aber nur 7 Kanäle
+    // The fine channel at offset 9 is outside a seven-channel type.
     @Test
     fun fineOffsetAboveChannelCountIsRejected() {
         val type = typeWith(count = 7, fineOfFirstShared = 9)
         assertFailsWith<IllegalArgumentException> { validateShow(showWith(type)) }
     }
 
-    // ----- Doppelt belegte Positionen -----
+    // Duplicate offsets
 
-    // Zwei gemeinsame Kanäle auf Position 1
+    // Two shared channels use the same offset.
     @Test
     fun sameOffsetTwiceInSharedChannelsIsRejected() {
         val type = typeWith(sharedOffsets = listOf(1, 1))
         assertFailsWith<IllegalArgumentException> { validateShow(showWith(type)) }
     }
 
-    // Der gemeinsame Kanal liegt auf Position 2, die schon Zelle 1 gehört
+    // The shared channel uses offset 2, which is already occupied by cell 1.
     @Test
     fun sameOffsetInSharedAndCellIsRejected() {
         val type = typeWith(sharedOffsets = listOf(2))
         assertFailsWith<IllegalArgumentException> { validateShow(showWith(type)) }
     }
 
-    // Zelle 2 belegt die Position 4, die schon Zelle 1 gehört
+    // Cell 2 uses offset 4, which is already occupied by cell 1.
     @Test
     fun sameOffsetInTwoCellsIsRejected() {
         val type = typeWith(cell2Offsets = listOf(4, 6, 7))
         assertFailsWith<IllegalArgumentException> { validateShow(showWith(type)) }
     }
 
-    // Der Feinkanal liegt auf Position 3, die schon ein Kanal von Zelle 1 belegt
+    // The fine channel uses offset 3, which is already occupied by cell 1.
     @Test
     fun fineOffsetCollidingWithAnotherChannelIsRejected() {
         val type = typeWith(fineOfFirstShared = 3)
         assertFailsWith<IllegalArgumentException> { validateShow(showWith(type)) }
     }
 
-    // Der Feinkanal liegt auf derselben Position wie sein eigener Hauptkanal
+    // The fine channel cannot use the same offset as its coarse channel.
     @Test
     fun fineOffsetEqualToOwnOffsetIsRejected() {
         val type = typeWith(fineOfFirstShared = 1)
         assertFailsWith<IllegalArgumentException> { validateShow(showWith(type)) }
     }
 
-    // ----- Zellen -----
+    // Cells
 
-    // Beide Zellen haben die Nummer 1
+    // Both cells use index 1.
     @Test
     fun duplicateCellIndexIsRejected() {
         val type = typeWith(cell2Index = 1)
         assertFailsWith<IllegalArgumentException> { validateShow(showWith(type)) }
     }
 
-    // Ein Kanal von Zelle 2 liegt auf Position 8, der Typ hat aber nur 7 Kanäle
+    // A channel in cell 2 uses offset 8, outside the seven-channel type.
     @Test
     fun cellOffsetAboveChannelCountIsRejected() {
         val type = typeWith(cell2Offsets = listOf(5, 6, 8))
         assertFailsWith<IllegalArgumentException> { validateShow(showWith(type)) }
     }
 
-    // Ein Kanal von Zelle 1 liegt auf Position 0
+    // A channel in cell 1 uses invalid offset 0.
     @Test
     fun cellOffsetZeroIsRejected() {
         val type = typeWith(cell1Offsets = listOf(0, 3, 4))
@@ -184,8 +185,8 @@ class FixtureTypeValidationTest {
 
     @Test
     fun twoTypesWithCellsOfDifferentSizeAreValid() {
-        val small = typeWith()                                                // 7 Kanäle, Positionen bis 7
-        val big = typeWith(count = 14, cell2Offsets = listOf(12, 13, 14))     // 14 Kanäle, Positionen bis 14
+        val small = typeWith()                                                // 7 channels, with offsets through 7
+        val big = typeWith(count = 14, cell2Offsets = listOf(12, 13, 14))     // 14 channels, with offsets through 14
             .copy { id = 2; libraryKey = "test/gross/14-channel" }
         val show = showfile {
             name = "Zwei Typen"

@@ -1,3 +1,5 @@
+// Implements Protobuf parsing and serialization for DMX frame payloads.
+
 #include "dmx/include/link/dmx_frame_proto.h"
 #include "dmx_link.pb.h"
 

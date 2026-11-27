@@ -1,3 +1,5 @@
+// Declares the per-connection decoder, payload validation, and frame statistics.
+
 #pragma once
 #include <cstddef>
 #include <cstdint>
@@ -9,30 +11,27 @@
 namespace archx::dmx::link {
 
 struct LinkStats {
-  std::uint64_t framesApplied = 0;    // an den Sink weitergegeben
-  std::uint64_t framesMalformed = 0;  // Payload nicht als DmxFrame lesbar
-  std::uint64_t framesInvalid = 0;    // lesbar, aber Universum > kMaxUniverse oder data != 512 Bytes
-  std::uint64_t framingErrors = 0;    // Protokollfehler im Datenstrom (je Fehler einmal)
+  std::uint64_t framesApplied = 0;    // Forwarded to the sink.
+  std::uint64_t framesMalformed = 0;  // Payload could not be parsed as DmxFrame.
+  std::uint64_t framesInvalid = 0;    // Parsed, but universe or data size is invalid.
+  std::uint64_t framingErrors = 0;    // Stream protocol errors, counted once each.
 };
 
-// Logik pro Verbindung, ohne Sockets (dadurch ohne Netzwerk testbar):
-// Bytes -> Rahmen -> DmxFrame -> prüfen -> Sink.
+// Per-connection logic without sockets, allowing network-independent tests:
+// bytes -> frame -> DmxFrame -> validation -> sink.
 //
-// Regeln:
-//  - Rahmen mit ungültigem INHALT (malformed/invalid) werden gezählt und
-//    übersprungen. Der Strom bleibt synchron, die Verbindung bleibt offen.
-//  - Ein Fehler im FRAMING beendet die Verbindung: onBytes() gibt false zurück.
-//    Rahmen vor dem Fehler (auch im selben Aufruf) wurden schon angewendet.
-//    Weitere Bytes werden bis reset() ignoriert (false, ohne neu zu zählen).
-//  - Reihenfolge der Rahmen bleibt erhalten.
+// Malformed or invalid payloads are counted and skipped without closing the
+// connection. A framing error makes onBytes() return false; complete frames
+// before the error are still applied, and later bytes are ignored until reset().
+// Frame order is preserved.
 class LinkSession {
  public:
   explicit LinkSession(FrameSink& sink, PayloadParser parser = parseDmxFrame);
 
   bool onBytes(const std::uint8_t* data, std::size_t size);
 
-  // Neue Verbindung: angefangene Daten und Fehlerzustand weg, Statistik bleibt,
-  // der Sink wird NICHT angefasst (die letzten Rahmen bleiben aktiv).
+  // Resets partial data and framing errors for a new connection. Statistics
+  // are preserved and the sink is left untouched.
   void reset();
 
   const LinkStats& stats() const { return stats_; }

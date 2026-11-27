@@ -1,3 +1,5 @@
+// Implements the loopback TCP server and its poll-based shutdown wake-up.
+
 #include "dmx/include/link/link_server.h"
 
 #include <utility>
@@ -20,13 +22,6 @@ LinkServer::LinkServer(FrameSink& sink, PayloadParser parser)
 LinkServer::~LinkServer() { stop(); }
 
 bool LinkServer::start(std::uint16_t port) {
-  // TODO (Reihenfolge):
-  //  1. running_ schon true -> false.
-  //  2. socket(AF_INET, SOCK_STREAM), SO_REUSEADDR, bind auf
-  //     htonl(INADDR_LOOPBACK) (NICHT INADDR_ANY!), listen.
-  //  3. getsockname -> port_ setzen (wichtig für port == 0).
-  //  4. pipe() für den Wecker anlegen, running_ = true, thread_ = std::thread(run).
-  //  5. Bei jedem Fehler: alles wieder schließen, false zurückgeben (kein Leck).
   if (running_.load()) {
     return false;
   }
@@ -81,14 +76,9 @@ bool LinkServer::start(std::uint16_t port) {
   thread_ = std::thread(&LinkServer::run, this);
 
   return true;
-
 }
 
 void LinkServer::stop() {
-  // TODO: Darf NICHT werfen (Destruktor). Nicht gestartet -> nichts tun.
-  //       running_ auf false, ein Byte in wakeWrite_ schreiben, thread_ joinen,
-  //       danach die Deskriptoren schließen (UniqueFd::reset()).
-  //       Muss mehrfach aufrufbar sein.
   if (running_.load()) {
     running_.store(false);
 
@@ -101,27 +91,14 @@ void LinkServer::stop() {
       thread_.join();
     }
 
-
-
     wakeRead_.reset();
     wakeWrite_.reset();
     listenFd_.reset();
     port_ = 0;
-
   }
 }
 
 void LinkServer::run() {
-  // TODO: Schleife mit poll() über [wakeRead_, listenFd_, aktiver Client]:
-  //  - Wecker lesbar            -> Schleife beenden
-  //  - listenFd_ lesbar         -> accept(); alten Client schließen (ersetzen),
-  //                                session.reset(), ++accepted_
-  //  - Client lesbar            -> recv(); 0 oder Fehler -> Client schließen;
-  //                                sonst session.onBytes(); false -> schließen
-  //                                (EINTR ist kein Fehler)
-  //  Eine LinkSession (sink_, parser_) lebt in dieser Funktion.
-
-
   LinkSession session(sink_, parser_);
   UniqueFd clientFd;
   while (running_.load()) {
@@ -142,8 +119,6 @@ void LinkServer::run() {
       }
       break;
     }
-
-
     if (fds[0].revents & POLLIN) {
       std::fprintf(stderr, "break: Wecker\n");
       break;
@@ -172,9 +147,7 @@ void LinkServer::run() {
         clientFd.reset();
       }
     }
-
-
   }
-  }
+}
 
 }  // namespace archx::dmx::link

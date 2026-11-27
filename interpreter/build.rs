@@ -1,3 +1,4 @@
+// Compiles the shared Protobuf schemas into Rust code during the Cargo build.
 
 fn main() {
     // protoc comes from the protoc-bin-vendored package, so nothing needs to be installed separately.

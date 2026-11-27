@@ -1,3 +1,5 @@
+// Tests protobuf serialization and parsing against the shared golden vectors.
+
 package archx.master.dmxlink
 
 import org.junit.jupiter.api.Test
@@ -21,7 +23,7 @@ class DmxFrameProtoTest {
     @Test
     fun universeZeroIsOmittedFromTheWire() {
         val wire = DmxFrameProto.serialize(0, data(1))
-        assertContentEquals(byteArrayOf(0x12, 0x80.toByte(), 0x04), wire.copyOfRange(0, 3)) // sofort Feld 2
+        assertContentEquals(byteArrayOf(0x12, 0x80.toByte(), 0x04), wire.copyOfRange(0, 3)) // field 2 is emitted immediately
     }
 
     @Test
@@ -49,7 +51,7 @@ class DmxFrameProtoTest {
         val input = data(5)
         val wire = DmxFrameProto.serialize(1, input)
         input.fill(9)
-        // Nutzdaten stehen hinter 08 01 12 80 04
+        // The payload follows the 08 01 12 80 04 field prefix.
         assertTrue(wire.copyOfRange(5, wire.size).all { it.toInt() == 5 })
     }
 }

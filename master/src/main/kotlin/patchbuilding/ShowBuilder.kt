@@ -1,3 +1,4 @@
+// Builds, validates, and loads editable show data from Protobuf records.
 package patchbuilding
 
 import dev.archx.schema.FixtureType
@@ -23,7 +24,7 @@ open class ShowBuilder(private var showName: String = "Neue Show"): PatchBuilder
             if (existing != null) return existing.id
         }
         val newId = typeIdCounter++
-        fixtureTypesList += type.copy { id = newId }   // copy: Kopie mit geänderter ID
+        fixtureTypesList += type.copy { id = newId }   // Copy the fixture type with its newly allocated ID.
         return newId
     }
 
@@ -38,7 +39,7 @@ open class ShowBuilder(private var showName: String = "Neue Show"): PatchBuilder
         tiltInvert: Boolean = false,
         subSettings: List<SubFixtureSettings> = emptyList()
     ): PatchEntry {
-        // 0 und 0 bedeutet "nicht gepatcht", alles andere wird geprüft
+        // Universe and address zero are reserved to mean unpatched; valid patches are checked below.
         require(patchUniverse >= 1) { "Das Universum muss ab 1 gezählt werden" }
         require(patchAddress in 1..512) { "Die Adresse muss zwischen 1 und 512 liegen" }
         require(patchAddress + type.channelCount - 1 <= 512) {
@@ -59,7 +60,7 @@ open class ShowBuilder(private var showName: String = "Neue Show"): PatchBuilder
         name = showName
         fixtureTypes += fixtureTypesList
         patch += patchList
-        nextPatchId = patchIdCounter     // der Zähler heißt absichtlich anders als das Feld
+        nextPatchId = patchIdCounter     // The builder counter intentionally has a different name from the schema field.
     }
 
     fun load(show: Showfile) {

@@ -1,5 +1,5 @@
-// Tests für LinkSession (ohne Netzwerk). Der Parser wird eingespritzt, damit
-// diese Tests nicht vom generierten Protobuf-Code abhängen.
+// Tests LinkSession without networking. An injected parser keeps them
+// independent of generated Protobuf code.
 #include "dmx/include/link/link_session.h"
 #include "test_support.h"
 
@@ -8,7 +8,7 @@ using namespace archx::test;
 
 namespace {
 bool feed(LinkSession& s, const Bytes& b) { return s.onBytes(b.data(), b.size()); }
-Bytes garbageMessage() { return framed(Bytes{0xFF, 0xFF, 0xFF}); }  // gültiger Rahmen, kaputter Inhalt
+Bytes garbageMessage() { return framed(Bytes{0xFF, 0xFF, 0xFF}); }  // Valid frame with malformed contents.
 }  // namespace
 
 TEST(applies_valid_frame) {
@@ -54,14 +54,14 @@ TEST(accepts_universe_zero_and_max) {
 TEST(rejects_universe_above_max_without_closing) {
   FakeSink sink;
   LinkSession s(sink, testParse);
-  CHECK(feed(s, wireMessage(kMaxUniverse + 1, 1)));  // true: Verbindung bleibt
+  CHECK(feed(s, wireMessage(kMaxUniverse + 1, 1)));  // Still true: invalid content does not close the connection.
   CHECK_EQ(sink.count(), std::size_t{0});
   CHECK_EQ(s.stats().framesInvalid, std::uint64_t{1});
 }
 TEST(universe_above_16_bit_is_rejected_not_truncated) {
   FakeSink sink;
   LinkSession s(sink, testParse);
-  CHECK(feed(s, wireMessage(65536 + 3, 1)));  // würde als uint16_t zu Universum 3
+  CHECK(feed(s, wireMessage(65536 + 3, 1)));  // Must not truncate to universe 3 as a uint16_t.
   CHECK_EQ(sink.count(), std::size_t{0});
   CHECK_EQ(s.stats().framesInvalid, std::uint64_t{1});
 }
@@ -107,7 +107,7 @@ TEST(framing_error_returns_false_and_counts_once) {
   LinkSession s(sink, testParse);
   CHECK(!feed(s, Bytes{0, 0, 0, 0}));
   CHECK_EQ(s.stats().framingErrors, std::uint64_t{1});
-  CHECK(!feed(s, Bytes{1, 2, 3}));  // weitere Bytes: weiter false, nicht erneut gezählt
+  CHECK(!feed(s, Bytes{1, 2, 3}));  // Further bytes still return false and are not counted again.
   CHECK_EQ(s.stats().framingErrors, std::uint64_t{1});
 }
 TEST(frames_before_a_framing_error_are_still_applied) {
@@ -136,7 +136,7 @@ TEST(reset_discards_a_half_received_frame) {
   CHECK(feed(s, half));
   s.reset();
   CHECK(feed(s, wireMessage(2, 0x11)));
-  CHECK_EQ(sink.count(), std::size_t{1});  // kein Müll aus dem alten Rest
+  CHECK_EQ(sink.count(), std::size_t{1});  // No data from the previous partial frame is applied.
   CHECK(allBytesEqual(sink.last(2)->data, 0x11));
 }
 TEST(reset_keeps_stats_and_does_not_touch_the_sink) {

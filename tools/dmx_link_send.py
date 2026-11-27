@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""Handtest-Werkzeug für die Verbindung Master -> DMX-Submaster (Phase 2.4).
+"""Manual test client for the master-to-DMX-submaster link.
 
-Spielt den Master nach: verbindet sich mit 127.0.0.1:<port> und sendet DmxFrame-Nachrichten
-(4 Bytes Länge little-endian + Protobuf). Die Protobuf-Kodierung ist hier von Hand
-geschrieben, damit das Werkzeug unabhängig vom Produktcode bleibt (Orakel!).
+Mimics the master by connecting to 127.0.0.1:<port> and sending DmxFrame messages
+(4-byte little-endian length plus Protobuf). The Protobuf encoding is implemented
+independently here to provide an oracle for the production code.
 
-Beispiele:
+Examples:
   tools/dmx_link_send.py 6000 --universe 1 --fill 255
   tools/dmx_link_send.py 6000 --universe 1 --ramp --hz 44 --seconds 5
-  tools/dmx_link_send.py 6000 --mode bytewise          # jedes Byte einzeln (TCP-Stückelung)
-  tools/dmx_link_send.py 6000 --mode zero-length       # Protokollfehler: Verbindung muss zugehen
-  tools/dmx_link_send.py 6000 --mode oversize          # Protokollfehler: Länge 4 GiB
-  tools/dmx_link_send.py 6000 --mode wrong-size        # Inhalt ungültig: Verbindung bleibt offen
-  tools/dmx_link_send.py 6000 --mode bad-universe      # Universum 40000: abgelehnt, Verbindung offen
-  tools/dmx_link_send.py 6000 --mode bad-proto         # Rahmen ok, Inhalt Müll: übersprungen
-  tools/dmx_link_send.py 6000 --mode half-frame        # halber Rahmen, dann trennen
+  tools/dmx_link_send.py 6000 --mode bytewise          # send one byte at a time (TCP segmentation)
+  tools/dmx_link_send.py 6000 --mode zero-length       # framing error: connection should close
+  tools/dmx_link_send.py 6000 --mode oversize          # framing error: 4 GiB length
+  tools/dmx_link_send.py 6000 --mode wrong-size        # invalid content: connection should stay open
+  tools/dmx_link_send.py 6000 --mode bad-universe      # reject universe 40000; keep connection open
+  tools/dmx_link_send.py 6000 --mode bad-proto         # valid frame, malformed payload: skip it
+  tools/dmx_link_send.py 6000 --mode half-frame        # send half a frame, then disconnect
 """
 import argparse
 import socket

@@ -1,8 +1,10 @@
+// Loads shared frame and protobuf test vectors used by the Kotlin and C++ suites.
+
 package archx.master.dmxlink
 
 import java.io.File
 
-/** Hilfe: liest schema/testdata/dmx_link_vectors.txt (gleiche Datei wie die C++-Tests). */
+/** Reads schema/testdata/dmx_link_vectors.txt, the same vector file used by the C++ tests. */
 internal object TestVectors {
     class FrameVector(val name: String, val payload: ByteArray, val framed: ByteArray)
     class ProtoVector(val name: String, val universe: Int, val fill: Int, val wire: ByteArray)

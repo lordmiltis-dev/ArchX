@@ -1,7 +1,6 @@
+// Provides a small dependency-free test framework and helpers for the DMX link tests.
+
 #pragma once
-// Hilfe: Mini-Testrahmen ohne Abhängigkeiten + Werkzeuge für die Link-Tests.
-// Absichtlich klein gehalten; lässt sich später gegen GoogleTest/Catch2
-// austauschen, die TEST/CHECK-Namen sind dafür ähnlich.
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -31,14 +30,14 @@
 #include "dmx/include/link/todo.h"
 
 #ifndef ARCHX_VECTORS_PATH
-#error "ARCHX_VECTORS_PATH muss auf schema/testdata/dmx_link_vectors.txt zeigen (siehe CMake/run_link_tests.sh)"
+#error "ARCHX_VECTORS_PATH must point to schema/testdata/dmx_link_vectors.txt (see CMake/run_link_tests.sh)"
 #endif
 
 namespace archx::test {
 
 using Bytes = std::vector<std::uint8_t>;
 
-// ---------------------------------------------------------------- Rahmen
+// ---------------------------------------------------------------- Test framework
 struct CheckFailure : std::runtime_error {
   using std::runtime_error::runtime_error;
 };
@@ -133,7 +132,7 @@ inline int runAll() {
 #define ARCHX_TEST_MAIN() \
   int main() { return ::archx::test::runAll(); }
 
-// ---------------------------------------------------------------- Zeit
+// ---------------------------------------------------------------- Timing helpers
 inline bool waitFor(const std::function<bool()>& pred, int timeoutMs = 2000) {
   auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
   while (std::chrono::steady_clock::now() < end) {
@@ -144,7 +143,7 @@ inline bool waitFor(const std::function<bool()>& pred, int timeoutMs = 2000) {
 }
 inline void sleepMs(int ms) { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
 
-// ---------------------------------------------------------------- Referenzwerte
+// ---------------------------------------------------------------- Shared test vectors
 struct FrameVector {
   std::string name;
   Bytes payload, framed;
@@ -184,9 +183,9 @@ inline const Vectors& vectors() {
   return v;
 }
 
-// ---------------------------------------------------------------- unabhängige Test-Protobuf-Hilfe
-// Bewusst NICHT der Produktionscode: damit prüfen die Session-/Server-Tests ihre
-// Logik, ohne vom generierten Protobuf-Code abzuhängen.
+// ---------------------------------------------------------------- Independent test-only Protobuf helpers
+// These are not production code; they let session and server tests run without
+// depending on generated Protobuf code.
 inline void putVarint(Bytes& o, std::uint64_t v) {
   while (v >= 0x80) { o.push_back(static_cast<std::uint8_t>(v | 0x80)); v >>= 7; }
   o.push_back(static_cast<std::uint8_t>(v));
@@ -222,7 +221,7 @@ inline std::optional<archx::dmx::link::DmxFrame> testParse(const std::uint8_t* p
       f.data.assign(p + i, p + i + v);
       i += v;
     } else {
-      return std::nullopt;  // streng: unbekanntes Feld = kaputt (nur für Tests)
+      return std::nullopt;  // Strict test parser: unknown fields are malformed.
     }
   }
   return f;
@@ -233,7 +232,7 @@ inline Bytes framed(const Bytes& payload) {
   o.insert(o.end(), payload.begin(), payload.end());
   return o;
 }
-// Kompletter Draht-Rahmen für ein DmxFrame mit data = 512 x fill.
+// Builds a complete wire frame for DmxFrame with data = 512 x fill.
 inline Bytes wireMessage(std::uint32_t universe, std::uint8_t fill, std::size_t dataSize = 512) {
   return framed(wireFrame(universe, Bytes(dataSize, fill)));
 }
@@ -243,7 +242,7 @@ inline Bytes concat(std::initializer_list<Bytes> parts) {
   return o;
 }
 
-// ---------------------------------------------------------------- Sink
+// ---------------------------------------------------------------- Fake frame sink
 class FakeSink : public archx::dmx::link::FrameSink {
  public:
   struct Entry {
@@ -262,7 +261,7 @@ class FakeSink : public archx::dmx::link::FrameSink {
     std::lock_guard<std::mutex> l(m_);
     return entries_;
   }
-  // Letzter Rahmen eines Universums (oder nullopt).
+  // Returns the latest frame for a universe, or nullopt if there is none.
   std::optional<Entry> last(std::uint16_t u) const {
     std::lock_guard<std::mutex> l(m_);
     for (auto it = entries_.rbegin(); it != entries_.rend(); ++it)
@@ -277,7 +276,7 @@ inline bool allBytesEqual(const archx::dmx::link::UniverseData& d, std::uint8_t 
   return std::all_of(d.begin(), d.end(), [v](std::uint8_t b) { return b == v; });
 }
 
-// ---------------------------------------------------------------- TCP-Client für Tests
+// ---------------------------------------------------------------- TCP test client
 class TcpClient {
  public:
   ~TcpClient() { close(); }
@@ -307,7 +306,7 @@ class TcpClient {
     }
     return true;
   }
-  // true, sobald die Gegenseite die Verbindung geschlossen hat (EOF oder Reset).
+  // Returns true once the peer has closed the connection (EOF or reset).
   bool waitForClose(int timeoutMs = 2000) {
     auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
     while (std::chrono::steady_clock::now() < end) {

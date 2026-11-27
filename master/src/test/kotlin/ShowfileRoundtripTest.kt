@@ -1,3 +1,4 @@
+// Tests show serialization, fixture reuse, cell persistence, and checked-in examples.
 import patchbuilding.ShowBuilder
 import dev.archx.schema.Attribute
 import dev.archx.schema.FixtureType
@@ -10,14 +11,14 @@ import kotlin.test.assertFailsWith
 
 class ShowfileRoundtripTest: ShowBuilder() {
 
-    // Hilfsfunktion: der KLS-801 im 15-Kanal-Modus (3 gemeinsame Kanäle, 4 Zellen mit je RGB)
+    // Build a KLS-801 in 15-channel mode: 3 shared channels and 4 RGB cells.
     private fun kls801(): FixtureType {
         val cells = (1..4).map { cell ->
-            val first = 4 + (cell - 1) * 3        // erster Kanal der Zelle: 4, 7, 10, 13
+            val first = 4 + (cell - 1) * 3        // First channel for the cell: 4, 7, 10, or 13.
             buildSubFixtureDef(
                 cellIndex = cell,
                 cellName = "Pixel $cell",
-                posX = (4 - cell).toFloat(),      // Zelle 1 liegt rechts, Zelle 4 links
+                posX = (4 - cell).toFloat(),      // Cell 1 is on the right; cell 4 is on the left.
                 posY = 0f,
                 channelProperties = listOf(
                     buildChannelDef(first, Attribute.ATTRIBUTE_RED, "Red $cell"),
@@ -43,7 +44,7 @@ class ShowfileRoundtripTest: ShowBuilder() {
         )
     }
 
-    // Bytes schreiben und wieder lesen ergibt dasselbe Showfile
+    // Serializing and parsing the show should preserve it exactly.
     @Test
     fun showfileSurvivesSerialization() {
         val original = ExampleShow().exampleShow()
@@ -51,7 +52,7 @@ class ShowfileRoundtripTest: ShowBuilder() {
         assertEquals(original, restored)
     }
 
-    // Zwei gleiche Fixtures teilen sich einen Typ
+    // Two identical fixtures share one type.
     @Test
     fun twoPatchesShareOneType() {
         val show = ExampleShow().exampleShow()
@@ -61,7 +62,7 @@ class ShowfileRoundtripTest: ShowBuilder() {
         assertEquals(3, show.nextPatchId)
     }
 
-    // Zellen und ihre Kanäle gehen beim Speichern nicht verloren
+    // Cells and their channels must survive serialization.
     @Test
     fun cellsSurviveSerialization() {
         val builder = ShowBuilder()
@@ -78,7 +79,7 @@ class ShowfileRoundtripTest: ShowBuilder() {
         assertEquals(show, restored)
     }
 
-    // Eine Show ohne Patches ist gültig (vorher stürzte buildShowFile hier ab)
+    // A show without patches is valid.
     @Test
     fun emptyShowWorks() {
         val show = ShowBuilder().build("Leer")
@@ -87,7 +88,7 @@ class ShowfileRoundtripTest: ShowBuilder() {
         assertEquals(show, Showfile.parseFrom(show.toByteArray()))
     }
 
-    // Ein Fixture mit 6 Kanälen darf nicht bei Adresse 510 beginnen
+    // A six-channel fixture cannot start at address 510.
     @Test
     fun fixtureMustNotExceedUniverse() {
         val type = ExampleShow().exampleShow().fixtureTypesList[0]
@@ -109,7 +110,7 @@ class ShowfileRoundtripTest: ShowBuilder() {
         val type = builder.getShow().fixtureTypesList[0]
         val entry = builder.patchFixture("Par 3", 3, type, patchUniverse = 1, patchAddress = 13)
 
-        assertEquals(3, entry.id)                        // 1 und 2 waren schon vergeben
-        assertEquals(1, builder.getShow().fixtureTypesCount)   // der Typ wird nicht doppelt angelegt
+        assertEquals(3, entry.id)                        // IDs 1 and 2 were already allocated.
+        assertEquals(1, builder.getShow().fixtureTypesCount)   // The fixture type is not duplicated.
     }
 }

@@ -1,4 +1,4 @@
-// Tests für encodeFrame / FrameDecoder (Länge-Präfix-Framing).
+// Tests length-prefixed frame encoding and incremental stream decoding.
 #include <random>
 
 #include "dmx/include/link/frame_codec.h"
@@ -109,7 +109,7 @@ TEST(decoder_frame_end_and_next_header_in_same_chunk) {
   Frames out;
   Bytes a = encodeFrame(Bytes{1, 2});
   Bytes b = encodeFrame(Bytes{3});
-  Bytes in = concat({a, Bytes(b.begin(), b.begin() + 2)});  // zweiter Header angefangen
+  Bytes in = concat({a, Bytes(b.begin(), b.begin() + 2)});  // The next frame's header has started.
   CHECK(d.feed(in.data(), in.size(), out));
   CHECK_EQ(out.size(), std::size_t{1});
   CHECK_EQ(d.bufferedBytes(), std::size_t{2});
@@ -143,7 +143,7 @@ TEST(decoder_zero_length_is_a_protocol_error) {
 TEST(decoder_oversize_length_fails_as_soon_as_header_is_complete) {
   FrameDecoder d;
   Frames out;
-  Bytes header{0xFF, 0xFF, 0xFF, 0xFF};  // 4 GiB: darf nie angelegt/abgewartet werden
+  Bytes header{0xFF, 0xFF, 0xFF, 0xFF};  // 4 GiB must be rejected without allocating or waiting.
   CHECK(!d.feed(header.data(), header.size(), out));
   CHECK(d.failed());
 }
@@ -168,7 +168,7 @@ TEST(decoder_error_in_split_header_is_detected_on_last_header_byte) {
   FrameDecoder d;
   Frames out;
   Bytes zero{0, 0, 0, 0};
-  CHECK(d.feed(zero.data(), 3, out));  // noch kein vollständiger Header
+  CHECK(d.feed(zero.data(), 3, out));  // The header is not complete yet.
   CHECK(!d.failed());
   CHECK(!d.feed(zero.data() + 3, 1, out));
   CHECK(d.failed());
@@ -188,7 +188,7 @@ TEST(decoder_delivers_complete_frames_before_the_error) {
   Frames out;
   Bytes in = concat({encodeFrame(Bytes{1}), encodeFrame(Bytes{2}), Bytes{0, 0, 0, 0}, encodeFrame(Bytes{3})});
   CHECK(!d.feed(in.data(), in.size(), out));
-  CHECK_EQ(out.size(), std::size_t{2});  // der Rahmen NACH dem Fehler zählt nicht
+  CHECK_EQ(out.size(), std::size_t{2});  // The frame after the error is not delivered.
   CHECK_EQ(out[0], (Bytes{1}));
   CHECK_EQ(out[1], (Bytes{2}));
 }
@@ -207,10 +207,10 @@ TEST(decoder_reset_clears_partial_frame_and_failure) {
   Bytes good = encodeFrame(Bytes{9});
   CHECK(d.feed(good.data(), good.size(), out));
   CHECK_EQ(out.size(), std::size_t{1});
-  CHECK_EQ(out[0], (Bytes{9}));  // kein Rest vom alten halben Rahmen
+  CHECK_EQ(out[0], (Bytes{9}));  // No bytes from the previous partial frame remain.
 }
 TEST(decoder_survives_random_chunking_of_many_frames) {
-  std::mt19937 rng(12345);  // feste Startzahl: Fehler sind reproduzierbar
+  std::mt19937 rng(12345);  // A fixed seed makes failures reproducible.
   Frames expected;
   Bytes stream;
   for (int i = 0; i < 500; ++i) {
@@ -229,7 +229,7 @@ TEST(decoder_survives_random_chunking_of_many_frames) {
   }
   CHECK_EQ(out.size(), expected.size());
   for (std::size_t i = 0; i < expected.size(); ++i)
-    if (!(out[i] == expected[i])) ARCHX_FAIL_AT("Rahmen " + std::to_string(i) + " weicht ab");
+    if (!(out[i] == expected[i])) ARCHX_FAIL_AT("Frame " + std::to_string(i) + " does not match");
   CHECK_EQ(d.bufferedBytes(), std::size_t{0});
 }
 

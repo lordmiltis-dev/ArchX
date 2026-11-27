@@ -1,3 +1,5 @@
+// Tests frame encoding, maximum payload handling, and golden-vector compatibility.
+
 package archx.master.dmxlink
 
 import org.junit.jupiter.api.Test
@@ -47,7 +49,7 @@ class FrameCodecTest {
         val out = FrameCodec.encode(payload)
         assertNotSame(payload, out)
         payload[0] = 99
-        assertEquals(1, out[4].toInt())   // spätere Änderung der Eingabe wirkt nicht zurück
+        assertEquals(1, out[4].toInt())   // Later input changes must not affect the encoded frame.
     }
 
     @Test

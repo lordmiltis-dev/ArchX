@@ -1,11 +1,12 @@
+// Validates fixture channel layouts, patch IDs, and DMX address assignments.
 package patchbuilding
 
 import dev.archx.schema.Showfile
 
 
-// Prüft, ob eine Show in sich stimmig ist.
-// Bei einem Fehler: IllegalArgumentException mit einer verständlichen Meldung.
-// Bei einer gültigen Show passiert nichts.
+// Checks that the show and its patch assignments are internally consistent.
+// Throws IllegalArgumentException with a diagnostic when a rule is violated.
+// Returns normally when the show is valid.
 
 
 
@@ -17,19 +18,19 @@ fun validateShow(show: Showfile) {
 
     for (fixture in fixtureTypesList) {
         for (channel in fixture.channelsList) {
-            //Channel Offset cant be smaller than one
+            // Channel offsets are one-based.
             if (channel.offset <= 0) {
                 throw IllegalArgumentException("channel Offset cant be smaller than One. Found at:${channel.name} with Offset: ${channel.offset} at Fixture: ${fixture.name}")
             }
-            //no offset above Channel count
+            // Reject coarse offsets beyond the fixture channel count.
             if (channel.offset > fixture.channelCount) {
                 throw IllegalArgumentException("channel Offset cant be bigger than the Channel count. Found at: ${channel.name} with Offset: ${channel.offset} at Fixture: ${fixture.name}")
             }
-            //no fine Offset above Channel count
+            // Reject fine offsets beyond the fixture channel count.
             if (channel.fineOffset > fixture.channelCount) {
                 throw IllegalArgumentException("channel fine Offset cant be bigger than the Channel count. Found at: ${channel.name} with Offset: ${channel.fineOffset} at Fixture: ${fixture.name}")
             }
-            //offset can not be fine offset
+            // A channel cannot use the same coarse and fine offset.
             if (channel.fineOffset == channel.offset) {
                 throw IllegalArgumentException("fine offset can not be the same as offset. Found at: ${channel.name} with Offset: ${channel.offset} and fine offset: ${channel.fineOffset}")
             }
@@ -37,7 +38,7 @@ fun validateShow(show: Showfile) {
         }
 
 
-        //duplicate shared Channels are not allowed
+        // Shared and cell channels must not reuse offsets.
         val allChannels = fixture.channelsList + fixture.subFixturesList.flatMap { it.channelsList }
         val seen = mutableSetOf<Int>()
         for (n in allChannels) {
@@ -56,7 +57,7 @@ fun validateShow(show: Showfile) {
 
         val seenCells = mutableSetOf<Int>()
         for (cell in fixture.subFixturesList){
-            //duplicate cell indexes
+            // Cell indexes must be unique within a fixture type.
             if (seenCells.contains(cell.index)){
                 throw IllegalArgumentException("Duplicate cell Indexes are not allowed. Found at ${cell.name} with Value ${cell.index}")
             }
@@ -67,7 +68,7 @@ fun validateShow(show: Showfile) {
 
         }
 
-        //general Checks
+        // Apply the general channel offset checks to every channel.
         for (channel in allChannels) {
             if (channel.offset <= 0) { throw IllegalArgumentException("Channel offset cant be smaller than 0")}
             if (channel.offset > fixture.channelCount) { throw IllegalArgumentException()}
@@ -81,14 +82,14 @@ fun validateShow(show: Showfile) {
     }
 
 
-    //unknow Type Ids
+    // Every patch must reference a known fixture type.
     for (patch in patchList){
         if (typesById[patch.fixtureTypeId] == null){
             throw IllegalArgumentException("Unknown Fixture Type Id. Found at ${patch.id} with Fixture Type Id ${patch.fixtureTypeId}")
         }
     }
 
-    //duplicate Patch Ids
+    // Patch IDs must be unique throughout the show.
     for(i in 0..patchList.lastIndex) {
         for (j in 1..patchList.lastIndex) {
                 if (patchList[j].id == patchList[i].id) {
@@ -105,7 +106,7 @@ fun validateShow(show: Showfile) {
 
 
 
-    //Double Type Id in fixtureTypesList
+    // Fixture type IDs must be unique throughout the show.
     for(i in 0..fixtureTypesList.lastIndex) {
         for (j in 1..fixtureTypesList.lastIndex) {
             if(j == i){
@@ -121,7 +122,7 @@ fun validateShow(show: Showfile) {
 
 
 
-    //Invalid Universe
+    // Universes are one-based.
     for(i in patchList.indices) {
         if(patchList[i].universe <= 0) {
             throw IllegalArgumentException("Invalid patch universe: ${patchList[i].universe} for Patch ${patchList[i].id}")
@@ -132,7 +133,7 @@ fun validateShow(show: Showfile) {
 
 
 
-    //Invalid Address
+    // DMX addresses are one-based.
     for(patch in patchList) {
         if(patch.address <= 0) {
             throw IllegalArgumentException("Invalid patch address: ${patch.address} for Patch ${patch.id}")
@@ -143,7 +144,7 @@ fun validateShow(show: Showfile) {
 
 
 
-    //Max Universe Address reached
+    // Each fixture must fit within the 512 addresses of its universe.
     for (patch in patchList) {
         val type = typesById[patch.fixtureTypeId]
             ?: throw IllegalArgumentException("Unknown type ID ${patch.fixtureTypeId} at  Patch ${patch.id}")
@@ -156,7 +157,7 @@ fun validateShow(show: Showfile) {
 
 
 
-    //Overlapping Error
+    // Patches in the same universe must not overlap.
     for (i in patchList.indices) {
 
         val patch1 = patchList[i]
@@ -190,7 +191,7 @@ fun validateShow(show: Showfile) {
     }
 
 
-    //FixtureType with Zero channels
+    // Fixture types must occupy at least one channel.
     for (fixture in fixtureTypesList) {
         if (fixture.channelCount <= 0){
             throw IllegalArgumentException("Invalid fixtures channelCount: ${fixture.channelCount}")

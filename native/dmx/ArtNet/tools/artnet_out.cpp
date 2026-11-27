@@ -1,4 +1,6 @@
 
+// Sends a sample DMX frame over Art-Net for testing a configured output target.
+
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -15,7 +17,7 @@ int main() {
     archx::DmxOutput output(config);
 
     std::vector<uint8_t> frame(512, 0);
-    frame[0] = 255; // DMX-Kanal 1 auf 255
+    frame[0] = 255; // Set DMX channel 1 to 255.
 
     output.SetFrame(1, frame);
     output.Start();

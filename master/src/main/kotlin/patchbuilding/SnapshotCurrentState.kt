@@ -1,3 +1,4 @@
+// Exports the current show state as a serialized Protobuf snapshot.
 package patchbuilding
 
 import dev.archx.schema.Showfile
@@ -9,7 +10,7 @@ class SnapshotCurrentState(private val showProvider: () -> Showfile) {
 
 
     fun exportToBinary(target: File) {
-        val show = showProvider()    // wird erst beim Aufruf berechnet
+        val show = showProvider()    // Evaluate the provider on export so the snapshot reflects the latest show state.
         val bytes = show.toByteArray()
         target.parentFile.mkdirs()
         target.writeBytes(bytes)

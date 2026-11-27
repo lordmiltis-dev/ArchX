@@ -1,4 +1,4 @@
-// Integrationstests für LinkServer mit echten Sockets auf 127.0.0.1.
+// Integration tests for LinkServer using real sockets on 127.0.0.1.
 #include <fstream>
 
 #include "dmx/include/link/link_server.h"
@@ -8,7 +8,7 @@ using namespace archx::dmx::link;
 using namespace archx::test;
 
 namespace {
-// Wartet, bis der Sink mindestens n Rahmen hat.
+// Waits until the sink contains at least n frames.
 bool sinkHas(const FakeSink& s, std::size_t n, int ms = 2000) {
   return waitFor([&] { return s.count() >= n; }, ms);
 }
@@ -44,10 +44,10 @@ TEST(start_on_busy_port_fails_and_leaks_nothing) {
   CHECK(a.start(0));
   CHECK(!b.start(a.port()));
   CHECK_EQ(b.port(), std::uint16_t{0});
-  b.stop();  // nach fehlgeschlagenem start() trotzdem harmlos
+  b.stop();  // stop() remains harmless after a failed start().
 }
 TEST(listens_on_loopback_only) {
-  // Linux-spezifisch (/proc). Auf anderen Systemen wird der Test übersprungen.
+  // Linux-specific (/proc); skip this test on other systems.
   std::ifstream tcp("/proc/net/tcp");
   if (!tcp) return;
   FakeSink sink;
@@ -59,7 +59,7 @@ TEST(listens_on_loopback_only) {
   bool sawLoop = false, sawAny = false;
   std::string line;
   while (std::getline(tcp, line)) {
-    if (line.find(" 0A ") == std::string::npos) continue;  // nur LISTEN
+    if (line.find(" 0A ") == std::string::npos) continue;  // Keep LISTEN entries only.
     if (line.find(loop) != std::string::npos) sawLoop = true;
     if (line.find(any) != std::string::npos) sawAny = true;
   }
@@ -116,7 +116,7 @@ TEST(new_connection_replaces_the_old_one) {
   CHECK(sinkHas(sink, 1));
   CHECK(b.connect(server.port()));
   CHECK(waitFor([&] { return server.connectionsAccepted() == 2; }));
-  CHECK(a.waitForClose());  // die alte Verbindung wurde geschlossen
+  CHECK(a.waitForClose());  // The old connection was closed.
   CHECK(b.sendAll(wireMessage(2, 2)));
   CHECK(sinkHas(sink, 2));
   CHECK(allBytesEqual(sink.last(2)->data, 2));
@@ -130,12 +130,12 @@ TEST(reconnect_after_client_closed_works_and_frames_stay) {
     CHECK(a.connect(server.port()));
     CHECK(a.sendAll(wireMessage(1, 0xA1)));
     CHECK(sinkHas(sink, 1));
-  }  // a schließt
+  }  // Client a disconnects.
   TcpClient b;
   CHECK(b.connect(server.port()));
   CHECK(b.sendAll(wireMessage(2, 0xB2)));
   CHECK(sinkHas(sink, 2));
-  CHECK(allBytesEqual(sink.last(1)->data, 0xA1));  // der alte Rahmen bleibt im Sink
+  CHECK(allBytesEqual(sink.last(1)->data, 0xA1));  // The previous frame remains in the sink.
   CHECK_EQ(server.connectionsAccepted(), std::uint64_t{2});
 }
 TEST(half_received_frame_of_a_dead_connection_is_discarded) {
@@ -155,7 +155,7 @@ TEST(half_received_frame_of_a_dead_connection_is_discarded) {
   CHECK(b.sendAll(wireMessage(2, 0x22)));
   CHECK(sinkHas(sink, 1));
   sleepMs(100);
-  CHECK_EQ(sink.count(), std::size_t{1});  // genau der eine saubere Rahmen
+  CHECK_EQ(sink.count(), std::size_t{1});  // Exactly one complete frame was accepted.
   CHECK(allBytesEqual(sink.last(2)->data, 0x22));
 }
 TEST(framing_error_closes_only_that_connection) {
@@ -199,7 +199,7 @@ TEST(invalid_content_does_not_close_the_connection) {
   CHECK(c.sendAll(concat({wireMessage(1, 1, 100), framed(Bytes{0xFF}), wireMessage(2, 2)})));
   CHECK(sinkHas(sink, 1));
   CHECK_EQ(sink.count(), std::size_t{1});
-  CHECK(!c.waitForClose(300));  // Verbindung ist noch offen
+  CHECK(!c.waitForClose(300));  // The connection remains open.
   CHECK(c.sendAll(wireMessage(3, 3)));
   CHECK(sinkHas(sink, 2));
 }
@@ -229,7 +229,7 @@ TEST(idle_server_does_not_burn_cpu) {
   FakeSink sink;
   LinkServer server(sink, testParse);
   CHECK(server.start(0));
-  // Grobe Prüfung auf Busy-Waiting: 300 ms Leerlauf dürfen nicht ~300 ms CPU kosten.
+  // A rough busy-wait check: 300 ms idle time should not consume about 300 ms of CPU.
   auto cpu = [] { return std::clock(); };
   auto c0 = cpu();
   sleepMs(300);

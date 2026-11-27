@@ -1,3 +1,4 @@
+// Verifies that Kotlin can read the .archx container produced by the Rust interpreter.
 import patchbuilding.ShowBuilder
 import dev.archx.schema.Showfile
 import java.io.File
@@ -6,16 +7,16 @@ import java.nio.ByteOrder
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-// Vertragstest: Kotlin liest die .archx-Datei, die der Rust-Interpreter geschrieben hat.
-// Die Datei entsteht mit:
+// Contract test: Kotlin reads the .archx file written by the Rust interpreter.
+// Generate the file with:
 //   cargo run -- pack ../schema/testdata/showfile_example.bin ../schema/testdata/showfile_example.archx
-// Sie wird einmal erzeugt und committet.
+// The generated fixture is checked into the repository.
 class ArchxFileContractTest {
 
     private val file = File("../schema/testdata/showfile_example.archx")
     private val headerLength = 17
 
-    // Kopf: 5 Bytes Kennung, 4 Bytes Version, 8 Bytes Länge (beides niedrigstes Byte zuerst)
+    // Header layout: 5-byte magic, 4-byte version, and 8-byte payload length, all little-endian.
     @Test
     fun headerIsAsSpecified() {
         val bytes = file.readBytes()
@@ -26,7 +27,7 @@ class ArchxFileContractTest {
         assertEquals((bytes.size - headerLength).toLong(), buffer.getLong(9))
     }
 
-    // Der Block hinter dem Kopf ist die Beispiel-Show
+    // The payload following the header must match the example show.
     @Test
     fun payloadIsTheExampleShow() {
         val bytes = file.readBytes()
@@ -35,7 +36,7 @@ class ArchxFileContractTest {
         assertEquals(ExampleShow().exampleShow(), Showfile.parseFrom(payload))
     }
 
-    // Die vom Interpreter gespeicherte Show lässt sich in den Master laden
+    // The show written by the interpreter must load into the master builder.
     @Test
     fun showFromRustFileCanBeLoadedIntoTheBuilder() {
         val bytes = file.readBytes()

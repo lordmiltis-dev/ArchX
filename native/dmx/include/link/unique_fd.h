@@ -1,5 +1,6 @@
+// Provides a small RAII wrapper for file descriptors such as sockets and pipes.
+
 #pragma once
-// Hilfe: kleiner RAII-Wrapper für Dateideskriptoren (Sockets, Pipes).
 #include <unistd.h>
 
 #include <utility>

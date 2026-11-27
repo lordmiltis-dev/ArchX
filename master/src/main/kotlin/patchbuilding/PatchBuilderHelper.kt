@@ -1,3 +1,4 @@
+// Provides helpers for constructing Protobuf-backed fixture, channel, and patch records.
 package patchbuilding
 
 import dev.archx.schema.Attribute
@@ -23,13 +24,13 @@ open class PatchBuilderHelper {
                 id = patchId
                 fixtureNumber = patchNumber
                 name = patchName
-                fixtureTypeId = typeId          // vorher: fixtureTypeId = fixtureTypeId (Zuweisung an sich selbst)
+                fixtureTypeId = typeId
                 universe = patchUniverse
                 address = patchAddress
                 virtualDimmer = vDimmer
                 invertPan = panInvert
                 invertTilt = tiltInvert
-                subFixtures += subSettings // Listenfeld: nicht zuweisen, sondern hinzufügen
+                subFixtures += subSettings // Append entries to the generated repeated field rather than assigning a list.
     }
 
      fun buildSubFixtureSettings(subFIndex: Int, panInvert: Boolean = false, tiltInvert: Boolean = false):

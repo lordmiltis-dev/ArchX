@@ -1,3 +1,4 @@
+// Tests DMX frame generation, source precedence, 16-bit values, cells, and virtual dimmers.
 package dev.archx.master
 
 import dev.archx.schema.Attribute
@@ -19,7 +20,7 @@ import kotlin.test.assertFailsWith
 class ValueEngineTest {
 
     // ---------------------------------------------------------------
-    // Hilfen zum Bauen der Testdaten (mit der Protobuf-DSL, unabhängig von deinen anderen Hilfsklassen)
+    // Helpers build test data with the Protobuf DSL, independently of other test helpers.
     // ---------------------------------------------------------------
 
     private fun channel(
@@ -70,27 +71,27 @@ class ValueEngineTest {
         virtualDimmer = virtual
     }
 
-    // DMX-Wert an einer Adresse (ab 1) als Zahl von 0 bis 255
+    // Read the DMX value at a one-based address as an unsigned byte.
     private fun ByteArray.at(address: Int): Int = this[address - 1].toInt() and 0xFF
 
     // ---------------------------------------------------------------
-    // Die Testshow
+    // The test show:
     //
-    //  Typ 1  rgbPar    4 Kanäle: 1 Intensität, 2 Rot, 3 Grün, 4 Blau
-    //  Typ 2  mover     6 Kanäle: 1 Pan (fein 2, Grundwert 32768), 3 Tilt (fein 4, Grundwert 32768),
-    //                             5 Intensität, 6 Sonstiges (Grundwert 7)
-    //  Typ 3  bar       7 Kanäle: 1 Intensität (gemeinsam), Zelle 1: 2 Rot, 3 Grün, 4 Blau, Zelle 2: 5 Rot, 6 Grün, 7 Blau
-    //  Typ 4  rgbOnly   3 Kanäle: 1 Rot, 2 Grün, 3 Blau (ohne Dimmer)
-    //  Typ 5  htpRed    1 Kanal: 1 Rot mit ausdrücklich HTP
+    // Type 1 rgbPar: 4 channels: intensity, red, green, blue.
+    // Type 2 mover: 6 channels: 16-bit pan and tilt, intensity, and other.
+    // The pan and tilt defaults are centered at 32768; the other channel defaults to 7.
+    // Type 3 bar: shared intensity plus two independently controlled RGB cells.
+    // Type 4 rgbOnly: 3 RGB channels without a dimmer.
+    // Type 5 htpRed: one red channel explicitly using HTP.
     //
-    //  Patch 1  Typ 1, Universum 1, Adresse 1   (belegt 1 bis 4)
-    //  Patch 2  Typ 1, Universum 1, Adresse 10  (10 bis 13)
-    //  Patch 3  Typ 1, Universum 2, Adresse 1
-    //  Patch 4  Typ 2, Universum 1, Adresse 20  (20 bis 25)
-    //  Patch 5  Typ 3, Universum 1, Adresse 40  (40 bis 46)
-    //  Patch 6  Typ 4, Universum 1, Adresse 60  (60 bis 62), mit Virtual Dimmer
-    //  Patch 7  Typ 4, Universum 1, Adresse 70  (70 bis 72), ohne Virtual Dimmer
-    //  Patch 8  Typ 5, Universum 1, Adresse 80
+    // Patch 1: type 1, universe 1, address 1 (uses 1..4).
+    // Patch 2: type 1, universe 1, address 10 (uses 10..13).
+    // Patch 3: type 1, universe 2, address 1.
+    // Patch 4: type 2, universe 1, address 20 (uses 20..25).
+    // Patch 5: type 3, universe 1, address 40 (uses 40..46).
+    // Patch 6: type 4, universe 1, address 60 (uses 60..62), with virtual dimmer.
+    // Patch 7: type 4, universe 1, address 70 (uses 70..72), without virtual dimmer.
+    // Patch 8: type 5, universe 1, address 80.
     // ---------------------------------------------------------------
 
     private val rgbPar = typeOf(
@@ -159,7 +160,7 @@ class ValueEngineTest {
     private fun engine(): ValueEngine = ValueEngine(testShow()).also { it.load() }
 
     // ---------------------------------------------------------------
-    // Rahmen und Adressen
+    // Frames and addresses
     // ---------------------------------------------------------------
 
     @Test
@@ -176,7 +177,7 @@ class ValueEngineTest {
 
     @Test
     fun universeWithoutDefaultsStartsDark() {
-        val frame = engine().frame(2) // nur Patch 3, ein RGB-Scheinwerfer ohne Grundwerte
+        val frame = engine().frame(2) // only patch 3, an RGB fixture without defaults
         assertEquals(0, frame.count { it.toInt() != 0 })
     }
 
@@ -196,8 +197,8 @@ class ValueEngineTest {
         e.setValue(1, 2, Attribute.ATTRIBUTE_GREEN, 1.0f)
 
         val frame = e.frame(1)
-        assertEquals(255, frame.at(12)) // Adresse 10 plus Position 3 minus 1
-        assertEquals(0, frame.at(3))    // der Grünkanal von Patch 1 bleibt aus
+        assertEquals(255, frame.at(12)) // Address 10 + channel offset 3 - 1.
+        assertEquals(0, frame.at(3))    // Patch 1 green channel remains off.
     }
 
     @Test
@@ -210,7 +211,7 @@ class ValueEngineTest {
     }
 
     // ---------------------------------------------------------------
-    // Werte und Rundung
+    // Values and rounding
     // ---------------------------------------------------------------
 
     @Test
@@ -243,25 +244,25 @@ class ValueEngineTest {
     @Test
     fun attributeTheFixtureDoesNotHaveIsRejected() {
         assertFailsWith<IllegalArgumentException> {
-            engine().setValue(1, 1, Attribute.ATTRIBUTE_PAN, 0.5f) // der RGB-Scheinwerfer hat kein Pan
+            engine().setValue(1, 1, Attribute.ATTRIBUTE_PAN, 0.5f) // The RGB fixture has no pan channel.
         }
     }
 
     // ---------------------------------------------------------------
-    // Grundwerte und 16 Bit
+    // Default values and 16-bit channels
     // ---------------------------------------------------------------
 
     @Test
     fun untouchedChannelsOutputTheirDefaultValues() {
         val frame = engine().frame(1)
 
-        // Pan und Tilt stehen in der Mitte: 32768 ist 0x8000, also Hauptkanal 128 und Feinkanal 0
+        // Pan and tilt are centered: 32768 is 0x8000, so coarse is 128 and fine is 0.
         assertEquals(128, frame.at(20))
         assertEquals(0, frame.at(21))
         assertEquals(128, frame.at(22))
         assertEquals(0, frame.at(23))
-        assertEquals(0, frame.at(24))  // Intensität ohne Grundwert
-        assertEquals(7, frame.at(25))  // Grundwert 7
+        assertEquals(0, frame.at(24))  // Intensity defaults to zero when no default is specified.
+        assertEquals(7, frame.at(25))  // Default value 7.
     }
 
     @Test
@@ -288,11 +289,11 @@ class ValueEngineTest {
         assertEquals(255, e.frame(1).at(25))
 
         e.clearValue(1, 4, Attribute.ATTRIBUTE_OTHER)
-        assertEquals(7, e.frame(1).at(25)) // ohne Wert gilt wieder der Grundwert
+        assertEquals(7, e.frame(1).at(25)) // Without an active value, the channel returns to its default.
     }
 
     // ---------------------------------------------------------------
-    // Zellen
+    // Cells
     // ---------------------------------------------------------------
 
     @Test
@@ -301,8 +302,8 @@ class ValueEngineTest {
         e.setValue(1, 5, Attribute.ATTRIBUTE_RED, 1.0f, cell = 2)
 
         val frame = e.frame(1)
-        assertEquals(255, frame.at(44)) // Adresse 40 plus Position 5 minus 1
-        assertEquals(0, frame.at(41))   // Rot von Zelle 1 bleibt aus
+        assertEquals(255, frame.at(44)) // Address 40 + channel offset 5 - 1.
+        assertEquals(0, frame.at(41))   // Cell 1 red remains off.
     }
 
     @Test
@@ -317,13 +318,13 @@ class ValueEngineTest {
     fun wrongScopeIsRejected() {
         val e = engine()
         assertFailsWith<IllegalArgumentException> {
-            e.setValue(1, 5, Attribute.ATTRIBUTE_INTENSITY, 1.0f, cell = 1) // Zellen haben keine Intensität
+            e.setValue(1, 5, Attribute.ATTRIBUTE_INTENSITY, 1.0f, cell = 1) // Cell 1 has no intensity attribute.
         }
         assertFailsWith<IllegalArgumentException> {
-            e.setValue(1, 5, Attribute.ATTRIBUTE_RED, 1.0f, cell = 3)       // Zelle 3 gibt es nicht
+            e.setValue(1, 5, Attribute.ATTRIBUTE_RED, 1.0f, cell = 3)       // Cell 3 does not exist.
         }
         assertFailsWith<IllegalArgumentException> {
-            e.setValue(1, 5, Attribute.ATTRIBUTE_RED, 1.0f, cell = 0)       // die gemeinsamen Kanäle haben kein Rot
+            e.setValue(1, 5, Attribute.ATTRIBUTE_RED, 1.0f, cell = 0)       // Shared channels do not have a red attribute.
         }
     }
 
@@ -353,8 +354,8 @@ class ValueEngineTest {
         assertEquals(128, e.frame(1).at(61))
 
         e.setValue(1, 6, Attribute.ATTRIBUTE_INTENSITY, 0.5f)
-        assertEquals(128, e.frame(1).at(60)) // 1.0 mal 0.5
-        assertEquals(64, e.frame(1).at(61))  // 0.5 mal 0.5
+        assertEquals(128, e.frame(1).at(60)) // 1.0 multiplied by 0.5.
+        assertEquals(64, e.frame(1).at(61))  // 0.5 multiplied by 0.5.
         assertEquals(0, e.frame(1).at(62))
     }
 
@@ -366,10 +367,10 @@ class ValueEngineTest {
     }
 
     // ---------------------------------------------------------------
-    // Mehrere Quellen: HTP und LTP
+    // Multiple sources: HTP and LTP
     // ---------------------------------------------------------------
 
-    // Intensität: der höchste Wert gewinnt (HTP)
+    // Intensity uses HTP: the highest value wins.
     @Test
     fun intensityTakesTheHighestValue() {
         val e = engine()
@@ -378,22 +379,22 @@ class ValueEngineTest {
         assertEquals(204, e.frame(1).at(1))
 
         e.setValue(2, 1, Attribute.ATTRIBUTE_INTENSITY, 0.1f)
-        assertEquals(51, e.frame(1).at(1)) // jetzt hat Quelle 1 den höchsten Wert
+        assertEquals(51, e.frame(1).at(1)) // Source 1 now has the highest value.
     }
 
-    // Farben ohne ausdrückliche Angabe: der zuletzt gesetzte Wert gewinnt (LTP)
+    // Colors default to LTP: the most recently set value wins.
     @Test
     fun colorTakesTheLatestValue() {
         val e = engine()
         e.setValue(1, 1, Attribute.ATTRIBUTE_RED, 1.0f)
         e.setValue(2, 1, Attribute.ATTRIBUTE_RED, 0.0f)
-        assertEquals(0, e.frame(1).at(2)) // Quelle 2 war zuletzt dran, auch wenn ihr Wert niedriger ist
+        assertEquals(0, e.frame(1).at(2)) // Source 2 was updated most recently, even though its value is lower.
 
         e.setValue(1, 1, Attribute.ATTRIBUTE_RED, 0.5f)
-        assertEquals(128, e.frame(1).at(2)) // jetzt wieder Quelle 1
+        assertEquals(128, e.frame(1).at(2)) // Source 1 is active again.
     }
 
-    // Steht an einem Kanal ausdrücklich HTP, gilt HTP, auch bei einer Farbe
+    // An explicit HTP setting also applies to color channels.
     @Test
     fun explicitPrecedenceOverridesTheDefault() {
         val e = engine()
@@ -423,7 +424,7 @@ class ValueEngineTest {
     }
 
     // ---------------------------------------------------------------
-    // Laden
+    // Loading
     // ---------------------------------------------------------------
 
     @Test

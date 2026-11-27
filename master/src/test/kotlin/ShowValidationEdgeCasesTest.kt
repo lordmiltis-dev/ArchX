@@ -1,3 +1,4 @@
+// Tests show validation at boundary conditions and across multiple patches.
 import patchbuilding.ShowBuilder
 import patchbuilding.validateShow
 import dev.archx.schema.PatchEntry
@@ -6,7 +7,7 @@ import dev.archx.schema.copy
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
-// Zusätzliche Tests für .validateShow: mehrere Typen, mehrere Patches, Randwerte
+// Additional validateShow tests for multiple types, multiple patches, and boundary values.
 class ShowValidationEdgeCasesTest {
 
     private fun validShow(): Showfile = ExampleShow().exampleShow()
@@ -16,9 +17,9 @@ class ShowValidationEdgeCasesTest {
         patch += patches
     }
 
-    // Eine Show mit sechs Patches, die sich einen Typ teilen (Adressen 1, 7 und 13)
+    // Build six patches that share a type, including address and universe boundaries.
     private fun sixPatchShow(): Showfile {
-        val type = validShow().fixtureTypesList[0]      // 6 Kanäle
+        val type = validShow().fixtureTypesList[0]      // 6 channels
         val builder = ShowBuilder()
         builder.patchFixture("Par 1", 1, type, patchUniverse = 1, patchAddress = 1)
         builder.patchFixture("Par 2", 2, type, patchUniverse = 1, patchAddress = 7)
@@ -29,7 +30,7 @@ class ShowValidationEdgeCasesTest {
         return builder.getShow()
     }
 
-    // ----- gültige Shows -----
+    // ----- Valid shows -----
 
     @Test
     fun threePatchesSharingOneTypeAreValid() {
@@ -47,7 +48,7 @@ class ShowValidationEdgeCasesTest {
         validateShow(builder.getShow())
     }
 
-    // 6 Kanäle ab Adresse 507 belegen genau 507 bis 512
+    // Six channels from address 507 occupy exactly addresses 507 through 512.
     @Test
     fun fixtureEndingExactlyAtChannel512IsValid() {
         val type = validShow().fixtureTypesList[0]
@@ -56,9 +57,9 @@ class ShowValidationEdgeCasesTest {
         validateShow(builder.getShow())
     }
 
-    // ----- ungültige Shows -----
+    // ----- Invalid shows -----
 
-    // Fehler im letzten Patch müssen auch gefunden werden
+    // An invalid final patch must still be detected.
     @Test
     fun errorInLastPatchIsFound() {
         val show = sixPatchShow()
@@ -77,7 +78,7 @@ class ShowValidationEdgeCasesTest {
         assertFailsWith<IllegalArgumentException> { validateShow(broken) }
     }
 
-    // 6 Kanäle ab Adresse 508 ergäben 508 bis 513, also einen Kanal zu viel
+    // Six channels from address 508 would extend past channel 512.
     @Test
     fun fixtureOneChannelTooFarIsRejected() {
         val show = validShow()
@@ -85,7 +86,7 @@ class ShowValidationEdgeCasesTest {
         assertFailsWith<IllegalArgumentException> { validateShow(broken) }
     }
 
-    // Patch-IDs müssen in der ganzen Show eindeutig sein, nicht nur in einem Universum
+    // Patch IDs must be unique across the entire show, not only within one universe.
     @Test
     fun duplicatePatchIdsInDifferentUniversesAreRejected() {
         val show = validShow()
@@ -95,7 +96,7 @@ class ShowValidationEdgeCasesTest {
         assertFailsWith<IllegalArgumentException> { validateShow(broken) }
     }
 
-    // Zwei Typen mit derselben ID, aber nur ein Patch
+    // Two types have the same ID while only one patch remains.
     @Test
     fun duplicateTypeIdsWithSinglePatchAreRejected() {
         val show = validShow()
@@ -104,9 +105,9 @@ class ShowValidationEdgeCasesTest {
         assertFailsWith<IllegalArgumentException> { validateShow(broken) }
     }
 
-    // ----- Überschneidungen -----
+    // ----- Overlapping patches -----
 
-    // Par 1 belegt 1 bis 6, Par 2 ab Adresse 6 belegt 6 bis 11: Kanal 6 liegt doppelt
+    // Patch 1 occupies 1..6; patch 2 starts at 6, so channel 6 overlaps.
     @Test
     fun patchesSharingOneChannelAreRejected() {
         val show = validShow()
@@ -121,15 +122,15 @@ class ShowValidationEdgeCasesTest {
         assertFailsWith<IllegalArgumentException> { validateShow(broken) }
     }
 
-    // Jeder Patch muss mit der Kanalzahl seines eigenen Typs gerechnet werden
+    // Use each patch type channel count when checking overlaps.
     @Test
     fun overlapUsesTheTypeOfEachPatch() {
-        val small = validShow().fixtureTypesList[0]                                   // 6 Kanäle
+        val small = validShow().fixtureTypesList[0]                                   // 6 channels
         val big = small.copy { libraryKey = "gross"; name = "Grosser Par"; channelCount = 12 }
         val builder = ShowBuilder()
-        builder.patchFixture("Klein 1", 1, small, patchUniverse = 1, patchAddress = 30)   // 30 bis 35
-        builder.patchFixture("Gross", 2, big, patchUniverse = 1, patchAddress = 10)       // 10 bis 21
-        builder.patchFixture("Klein 2", 3, small, patchUniverse = 1, patchAddress = 20)   // 20 bis 25, überschneidet sich mit "Gross"
+        builder.patchFixture("Klein 1", 1, small, patchUniverse = 1, patchAddress = 30)   // occupies 30..35
+        builder.patchFixture("Gross", 2, big, patchUniverse = 1, patchAddress = 10)       // occupies 10..21
+        builder.patchFixture("Klein 2", 3, small, patchUniverse = 1, patchAddress = 20)   // occupies 20..25 and overlaps the larger fixture
         assertFailsWith<IllegalArgumentException> { validateShow(builder.getShow()) }
     }
 }

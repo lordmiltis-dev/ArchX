@@ -1,3 +1,5 @@
+// Maintains and streams the latest DMX frames from the master to the submaster.
+
 package archx.master.dmxlink
 
 import archx.dmxlink.DmxLink
@@ -12,25 +14,20 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 /**
- * Sendet DMX-Rahmen vom Master an den DMX-Submaster (TCP 127.0.0.1, siehe docs/step-2-4.md).
+ * Sends DMX frames from the master to the DMX submaster over TCP.
  *
- * Regeln (jede wird von DmxLinkClientTest geprüft):
- *  - [sendFrame] blockiert nie auf dem Netzwerk: es validiert, KOPIERT die Daten, merkt sie
- *    sich als "letzter Rahmen dieses Universums" und weckt den Sende-Thread. Kein
- *    unbegrenzt wachsender Puffer: pro Universum zählt nur der neueste Rahmen.
- *  - Der Sende-Thread verbindet sich selbst und wieder neu, mit [reconnectDelayMs] Pause
- *    zwischen den Versuchen (kein Busy-Loop).
- *  - Nach JEDEM (Wieder-)Verbinden werden zuerst die letzten Rahmen ALLER Universen
- *    gesendet (aufsteigend nach Universum), damit ein neu gestarteter Submaster sofort den
- *    vollen Stand hat. Danach nur noch geänderte Universen (ebenfalls aufsteigend).
- *  - Ein geschlossener Peer wird auch im Leerlauf bemerkt (ohne neues sendFrame), sonst
- *    bliebe der letzte Rahmen nach einem Submaster-Neustart verloren.
- *  - [close] ist idempotent, kehrt zügig zurück (auch während Verbinden/Warten) und
- *    schließt den Socket.
+ * [sendFrame] validates and copies the data, stores only the latest frame per
+ * universe, and wakes the sender thread without blocking on network I/O.
+ * The sender reconnects with a [reconnectDelayMs] pause between attempts to
+ * avoid a busy loop. After every connection, it sends all stored frames in
+ * ascending universe order, then sends only changed frames in that order.
+ * Peer closure is detected even while idle so the complete state can be
+ * restored after a submaster restart. [close] is idempotent and closes the
+ * socket promptly, including while connecting or waiting.
  *
- * Aufbau auf dem Draht: [FrameCodec.encode] angewendet auf `serializer(universe, data)`.
+ * Wire format: [FrameCodec.encode] applied to `serializer(universe, data)`.
  *
- * @param serializer austauschbar, damit Tests ohne Protobuf laufen.
+ * @param serializer injectable so tests can run without Protobuf.
  */
 class DmxLinkClient(
     private val port: Int,
@@ -39,26 +36,24 @@ class DmxLinkClient(
     private val reconnectDelayMs: Long = 500,
 ) : AutoCloseable {
 
-    // Vorschlag für den Zustand (anpassen, wenn du es anders löst):
     private val lock = Object()
-    private val latest = TreeMap<Int, ByteArray>()   // letzter Rahmen je Universum (Kopie)
-    private val dirty = TreeSet<Int>()               // seit dem letzten Senden geändert
+    private val latest = TreeMap<Int, ByteArray>()   // Latest copied frame per universe.
+    private val dirty = TreeSet<Int>()               // Universes changed since the last send.
     private var started = false
     private var closed = false
     @Volatile private var connected = false
     @Volatile private var socket: java.net.Socket? = null
     private var worker: Thread? = null
 
-    /** true, solange eine TCP-Verbindung steht (best effort, nur zur Anzeige). */
+    /** True while a TCP connection appears to be active; intended for display only. */
     val isConnected: Boolean get() = connected
 
     /**
-     * Startet den Sende-Thread (Daemon-Thread, damit er die JVM nicht am Beenden hindert).
+     * Starts the sender thread as a daemon so it does not keep the JVM alive.
      *
-     * @throws IllegalStateException wenn schon gestartet oder geschlossen.
+     * @throws IllegalStateException if the client has already been started or closed.
      */
     fun start() {
-        // TODO: Zustand prüfen (ISE), Thread anlegen und starten, der run() ausführt.
         synchronized(lock) {
             check(!closed) { "sender is already closed" }
             check(!started) { "sender is already started" }
@@ -71,18 +66,14 @@ class DmxLinkClient(
     }
 
     /**
-     * Merkt den Rahmen und kehrt sofort zurück. Darf VOR [start] aufgerufen werden
-     * (der Rahmen wird nach dem ersten Verbinden gesendet).
+     * Stores a frame and returns immediately. May be called before [start];
+     * the frame is sent after the first connection.
      *
-     * @throws IllegalArgumentException [universe] nicht in 0..32767 oder [data] nicht 512 Bytes.
-     * @throws IllegalStateException nach [close].
+     * @throws IllegalArgumentException if [universe] is outside 0..32767 or
+     *         [data] does not contain 512 bytes.
+     * @throws IllegalStateException if called after [close].
      */
     fun sendFrame(universe: Int, data: ByteArray) {
-        // TODO: 1. Argumente prüfen (zuerst, auch wenn geschlossen? -> Reihenfolge ist
-        //          egal, beides wird getestet, aber nicht zusammen).
-        //       2. data.copyOf(), unter lock in latest ablegen, universe in dirty,
-        //          lock.notifyAll().
-
         require(universe in 0..MAX_UNIVERSE){
             "universe must be in 0..$MAX_UNIVERSE, but was $universe"
         }
@@ -102,9 +93,6 @@ class DmxLinkClient(
     }
 
     override fun close() {
-        // TODO: Idempotent. closed = true, Socket schließen (weckt blockierte Reads/Writes),
-        //       lock.notifyAll(), Thread joinen (mit Zeitlimit, z.B. 2 s).
-        //       Darf nicht werfen, auch nicht beim zweiten Aufruf.
         synchronized(lock) {
             if (closed) {
                 return
@@ -115,20 +103,6 @@ class DmxLinkClient(
         runCatching { socket?.close() }
         worker?.join(2000)
     }
-
-
-        // TODO: Schleife bis closed:
-        //   1. Socket verbinden (127.0.0.1:port, Timeout setzen). Fehler -> reconnectDelayMs
-        //      warten (lock.wait(reconnectDelayMs), damit close() es aufwecken kann).
-        //   2. connected = true; ALLE latest-Rahmen senden (dirty entsprechend leeren).
-        //   3. Warten auf dirty ODER auf EOF vom Peer. Tipp: ein zweiter kleiner Thread
-        //      (oder socket.soTimeout + read) liest vom Socket; read() == -1 bedeutet,
-        //      der Submaster hat zu gemacht -> Verbindung abbauen, zu 1.
-        //   4. Geänderte Universen aufsteigend senden: FrameCodec.encode(serializer(u, data)),
-        //      in EINEN write-Aufruf, dann flush().
-        //   5. Bei IOException: connected = false, Socket schließen, zurück zu 1.
-        //      Der Rahmen, bei dem es schiefging, bleibt in latest (wird beim
-        //      nächsten Verbinden ohnehin erneut gesendet).
         private fun run() {
             while (!isClosed()) {
                 val s = Socket()
@@ -154,7 +128,7 @@ class DmxLinkClient(
                         sendDirtyFrames(s)
                     }
                 } catch (_: IOException) {
-                    // Verbinden oder Schreiben fehlgeschlagen, oder close() hat den Socket zugemacht
+                    // Connection or write failed, or close() closed the socket.
                 } finally {
                     connected = false
                     runCatching { s.close() }
@@ -171,10 +145,10 @@ class DmxLinkClient(
                 try {
                     val input = s.getInputStream()
                     while (input.read() != -1) {
-                        // Der Submaster sendet noch nichts zurück; Daten werden ignoriert.
+                        // The submaster does not send responses; ignore any received bytes.
                     }
                 } catch (_: IOException) {
-                    // Socket wurde geschlossen (von uns oder vom Peer)
+                    // The socket was closed locally or by the peer.
                 }
                 peerGone.set(true)
                 synchronized(lock) { lock.notifyAll() }

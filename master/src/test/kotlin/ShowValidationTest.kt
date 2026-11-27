@@ -1,3 +1,4 @@
+// Tests show validation and failure-safe loading in ShowBuilder.
 import patchbuilding.ShowBuilder
 import patchbuilding.validateShow
 import dev.archx.schema.PatchEntry
@@ -7,19 +8,19 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-// Die Beispiel-Show hat einen Typ (ID 1, 6 Kanäle) und zwei Patches:
-// Par 1 (ID 1, Universum 1, Adresse 1 bis 6) und Par 2 (ID 2, Universum 1, Adresse 7 bis 12)
+// The example show has one six-channel type and two patches:
+// Par 1 (ID 1, universe 1, addresses 1..6) and Par 2 (ID 2, universe 1, addresses 7..12).
 class ShowValidationTest {
 
     private fun validShow(): Showfile = ExampleShow().exampleShow()
 
-    // Hilfsfunktion: eine Kopie der Show mit einer anderen Patch-Liste
+    // Helper that copies the show with a replacement patch list.
     private fun Showfile.withPatches(patches: List<PatchEntry>): Showfile = copy {
         patch.clear()
         patch += patches
     }
 
-    // ----- gültige Shows -----
+    // ----- Valid shows -----
 
     @Test
     fun validShowPasses() {
@@ -33,7 +34,7 @@ class ShowValidationTest {
         validateShow(ok)
     }
 
-    // ----- ungültige Shows -----
+    // ----- Invalid shows -----
 
     @Test
     fun unknownTypeIsRejected() {
@@ -52,11 +53,11 @@ class ShowValidationTest {
     @Test
     fun duplicateTypeIdsAreRejected() {
         val show = validShow()
-        val broken = show.copy { fixtureTypes += show.fixtureTypesList[0] }   // derselbe Typ zweimal, gleiche ID
+        val broken = show.copy { fixtureTypes += show.fixtureTypesList[0] }   // the same type appears twice with the same ID
         assertFailsWith<IllegalArgumentException> { validateShow(broken) }
     }
 
-    // Jeder Patch braucht ein Universum (ab 1) und eine Adresse (1 bis 512)
+    // Each patch requires a one-based universe and an address from 1 through 512.
     @Test
     fun patchWithoutUniverseIsRejected() {
         val show = validShow()
@@ -71,7 +72,7 @@ class ShowValidationTest {
         assertFailsWith<IllegalArgumentException> { validateShow(broken) }
     }
 
-    // Auch der .ShowBuilder lässt einen Patch ohne Universum und Adresse nicht zu
+    // ShowBuilder must also reject a patch without a universe or address.
     @Test
     fun patchFixtureRejectsMissingAddress() {
         val type = validShow().fixtureTypesList[0]
@@ -90,7 +91,7 @@ class ShowValidationTest {
     @Test
     fun fixtureExceedingUniverseIsRejected() {
         val show = validShow()
-        // 6 Kanäle ab Adresse 510 ergäben die Kanäle 510 bis 515
+        // Six channels starting at address 510 would occupy addresses 510 through 515.
         val broken = show.withPatches(listOf(show.patchList[0].copy { address = 510 }))
         assertFailsWith<IllegalArgumentException> { validateShow(broken) }
     }
@@ -98,14 +99,14 @@ class ShowValidationTest {
     @Test
     fun overlappingPatchesAreRejected() {
         val show = validShow()
-        // Par 2 ab Adresse 4 belegt 4 bis 9 und überschneidet sich mit Par 1 (1 bis 6)
+        // Par 2 starting at address 4 occupies 4..9 and overlaps Par 1 at 1..6.
         val broken = show.withPatches(listOf(show.patchList[0], show.patchList[1].copy { address = 4 }))
         assertFailsWith<IllegalArgumentException> { validateShow(broken) }
     }
 
-    // ----- Laden -----
+    // ----- Loading -----
 
-    // Eine fehlerhafte Datei darf die bisherige Show nicht zerstören
+    // A failed load must not corrupt the current show.
     @Test
     fun failedLoadKeepsOldShow() {
         val builder = ShowBuilder()

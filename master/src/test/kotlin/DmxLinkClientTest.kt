@@ -1,3 +1,5 @@
+// Tests the DMX link client's validation, framing, buffering, reconnection, and shutdown behavior.
+
 package archx.master.dmxlink
 
 import org.junit.jupiter.api.AfterEach
@@ -14,7 +16,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** Serializer nur für Tests: 2 Bytes Universum (big-endian) + Daten. Unabhängig von Protobuf. */
+/** Test-only serializer: two big-endian universe bytes followed by data, independent of Protobuf. */
 private val testSerializer: (Int, ByteArray) -> ByteArray =
     { u, d -> byteArrayOf((u shr 8).toByte(), u.toByte()) + d }
 
@@ -32,20 +34,20 @@ private fun awaitTrue(timeoutMs: Long = 3000, cond: () -> Boolean): Boolean {
     return cond()
 }
 
-/** Liest einen Rahmen (4 Bytes Länge LE + Payload). null = Verbindung sauber beendet (EOF am Rahmenanfang). */
+/** Reads a frame (4-byte little-endian length plus payload); null means EOF at a frame boundary. */
 private fun Socket.readFrame(): ByteArray? {
     val input = getInputStream()
     val header = input.readNBytes(4)
     if (header.isEmpty()) return null
-    check(header.size == 4) { "Header abgeschnitten (${header.size} Bytes)" }
+    check(header.size == 4) { "Truncated header (${header.size} bytes)" }
     val len = (header[0].toInt() and 0xFF) or ((header[1].toInt() and 0xFF) shl 8) or
         ((header[2].toInt() and 0xFF) shl 16) or ((header[3].toInt() and 0xFF) shl 24)
     val payload = input.readNBytes(len)
-    check(payload.size == len) { "Payload abgeschnitten" }
+    check(payload.size == len) { "Truncated payload" }
     return payload
 }
 
-/** Liest Rahmen, bis [quietMs] lang nichts mehr kommt (oder EOF). Ergebnis in Ankunftsreihenfolge. */
+/** Reads frames until [quietMs] elapses without data or EOF; returns them in arrival order. */
 private fun Socket.drain(quietMs: Int = 300): List<Pair<Int, ByteArray>> {
     soTimeout = quietMs
     val out = mutableListOf<Pair<Int, ByteArray>>()
@@ -55,9 +57,9 @@ private fun Socket.drain(quietMs: Int = 300): List<Pair<Int, ByteArray>> {
             out.add(decode(p))
         }
     } catch (_: SocketTimeoutException) {
-        // ruhig geworden
+        // No data arrived before the timeout.
     } catch (_: IOException) {
-        // Verbindung weg
+        // The connection was closed.
     }
     return out
 }
@@ -88,14 +90,14 @@ class DmxLinkClientTest {
 
     private fun unusedPort(): Int = ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { it.localPort }
 
-    // ------------------------------------------------------------ Argumente / Zustand
+    // ------------------------------------------------------------ Arguments and state
 
     @Test
     fun sendFrameRejectsUniverseOutOfRange() {
         val c = client(unusedPort())
         assertFailsWith<IllegalArgumentException> { c.sendFrame(-1, frame(0)) }
         assertFailsWith<IllegalArgumentException> { c.sendFrame(32768, frame(0)) }
-        c.sendFrame(0, frame(0))        // Grenzen sind erlaubt
+        c.sendFrame(0, frame(0))        // Boundary values are allowed.
         c.sendFrame(32767, frame(0))
     }
 
@@ -125,7 +127,7 @@ class DmxLinkClientTest {
         assertFailsWith<IllegalStateException> { c.start() }
     }
 
-    // ------------------------------------------------------------ Draht-Format
+    // ------------------------------------------------------------ Wire format
 
     @Test
     fun wireIsLittleEndianLengthPlusSerializerOutput() {
@@ -151,14 +153,14 @@ class DmxLinkClientTest {
         val c = client(ts.port)
         val data = frame(1)
         c.sendFrame(5, data)
-        data.fill(9)                          // darf den gemerkten Rahmen nicht verändern
+        data.fill(9)                          // Must not change the stored frame.
         c.start()
         val got = ts.accept().drain()
         assertEquals(1, got.size)
         assertContentEquals(frame(1), got[0].second)
     }
 
-    // ------------------------------------------------------------ Zusammenfassen und Reihenfolge
+    // ------------------------------------------------------------ Coalescing and ordering
 
     @Test
     fun framesBeforeStartAreCoalescedPerUniverseAndSentAscending() {
@@ -166,8 +168,8 @@ class DmxLinkClientTest {
         val c = client(ts.port)
         c.sendFrame(3, frame(0xA3))
         c.sendFrame(1, frame(0xB1))
-        c.sendFrame(3, frame(0xC3))   // überschreibt 0xA3
-        c.sendFrame(1, frame(0xD1))   // überschreibt 0xB1
+        c.sendFrame(3, frame(0xC3))   // Replaces the previously queued value 0xA3.
+        c.sendFrame(1, frame(0xD1))   // Replaces the previously queued value 0xB1.
         c.start()
         val got = ts.accept().drain()
         assertEquals(listOf(1, 3), got.map { it.first })
@@ -193,14 +195,14 @@ class DmxLinkClientTest {
         val ts = track(TestServer())
         val c = client(ts.port)
         c.start()
-        ts.accept()                      // angenommen, aber es wird nie gelesen
+        ts.accept()                      // The connection is accepted but no data is read from it.
         val t0 = System.nanoTime()
-        repeat(20_000) { i -> c.sendFrame(i % 4, frame(i)) }   // ~10 MB, würde jeden Puffer füllen
+        repeat(20_000) { i -> c.sendFrame(i % 4, frame(i)) }   // About 10 MB of data, enough to fill any buffer.
         val ms = (System.nanoTime() - t0) / 1_000_000
         assertTrue(ms < 2000, "sendFrame hat $ms ms gebraucht - blockiert er auf dem Netzwerk?")
     }
 
-    // ------------------------------------------------------------ Wiederverbinden
+    // ------------------------------------------------------------ Reconnection
 
     @Test
     fun connectsLaterWhenTheServerAppearsAfterStart() {
@@ -208,7 +210,7 @@ class DmxLinkClientTest {
         val c = client(port, delayMs = 50)
         c.sendFrame(1, frame(0x11))
         c.start()
-        Thread.sleep(200)                                   // Server noch nicht da
+        Thread.sleep(200)                                   // The server has not started yet.
         val server = ServerSocket()
         track(AutoCloseable { server.close() })
         server.reuseAddress = true
@@ -228,8 +230,8 @@ class DmxLinkClientTest {
         c.start()
         val first = ts.accept()
         assertEquals(2, first.drain().size)
-        first.close()                                       // Submaster "stürzt ab"
-        // KEIN weiteres sendFrame: der Client muss den Abbruch selbst bemerken
+        first.close()                                       // The submaster process has stopped.
+        // Do not call sendFrame again; the client must detect the disconnect itself.
         val second = ts.accept(timeoutMs = 3000)
         val got = second.drain().toMap().mapValues { it.value.first().toInt() and 0xFF }
         assertEquals(mapOf(1 to 0xA1, 2 to 0xA2), got)
@@ -245,10 +247,10 @@ class DmxLinkClientTest {
         val first = ts.accept()
         first.drain()
         first.close()
-        c.sendFrame(1, frame(0x99))                         // geht evtl. noch in den toten Socket
+        c.sendFrame(1, frame(0x99))                         // The write may still reach the closed socket.
         val second = ts.accept(timeoutMs = 3000)
         val got = second.drain().toMap().mapValues { it.value.first().toInt() and 0xFF }
-        assertEquals(mapOf(1 to 0x99, 2 to 0x02), got)      // jeweils der NEUESTE Stand
+        assertEquals(mapOf(1 to 0x99, 2 to 0x02), got)      // Keep only the latest value for each universe.
     }
 
     @Test
@@ -260,7 +262,7 @@ class DmxLinkClientTest {
             ts.server.soTimeout = 50
             while (running.get()) {
                 try {
-                    ts.server.accept().close()              // sofort wieder zu
+                    ts.server.accept().close()              // closes immediately after accepting the connection
                     accepts.incrementAndGet()
                 } catch (_: SocketTimeoutException) {
                 } catch (_: IOException) {
@@ -278,7 +280,7 @@ class DmxLinkClientTest {
         assertTrue(n in 2..10, "Verbindungen in 1 s: $n (erwartet ca. 5 bei 200 ms Pause)")
     }
 
-    // ------------------------------------------------------------ Zustand und Schließen
+    // ------------------------------------------------------------ Connection state and shutdown
 
     @Test
     fun isConnectedFollowsTheConnection() {
@@ -306,7 +308,7 @@ class DmxLinkClientTest {
         val eof = try {
             s.readFrame() == null
         } catch (_: IOException) {
-            true                                            // Reset zählt auch als geschlossen
+            true                                            // A reset also indicates a closed connection.
         }
         assertTrue(eof)
     }

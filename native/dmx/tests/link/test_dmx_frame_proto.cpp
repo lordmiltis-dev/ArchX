@@ -1,6 +1,5 @@
-// Tests für parseDmxFrame / serializeDmxFrame gegen den GENERIERTEN Protobuf-Code.
-// Die Referenzwerte stammen aus tools/gen_dmx_link_vectors.py (von Hand erzeugt,
-// unabhängig von protobuf).
+// Tests Protobuf frame parsing and serialization against generated Protobuf code.
+// The golden vectors are generated independently by tools/gen_dmx_link_vectors.py.
 #include "dmx/include/link/dmx_frame_proto.h"
 #include "test_support.h"
 
@@ -27,7 +26,7 @@ TEST(parse_matches_golden_vectors) {
   }
 }
 TEST(parse_missing_universe_means_zero) {
-  auto f = parse(wireFrame(0, Bytes(512, 1)));  // proto3 lässt 0 weg
+  auto f = parse(wireFrame(0, Bytes(512, 1)));  // proto3 omits the default value 0.
   CHECK(f.has_value());
   CHECK_EQ(f->universe, std::uint32_t{0});
 }
@@ -38,7 +37,7 @@ TEST(parse_empty_message_is_valid_default_message) {
   CHECK_EQ(f->data.size(), std::size_t{0});
 }
 TEST(parse_does_not_range_check_universe) {
-  auto f = parse(wireFrame(70000, Bytes(512, 2)));  // Prüfung ist Sache der LinkSession
+  auto f = parse(wireFrame(70000, Bytes(512, 2)));  // Range validation belongs to LinkSession.
   CHECK(f.has_value());
   CHECK_EQ(f->universe, std::uint32_t{70000});
 }
@@ -64,11 +63,11 @@ TEST(parse_last_data_field_wins) {
 }
 TEST(parse_truncated_data_returns_nullopt) {
   Bytes wire = wireFrame(1, Bytes(512, 9));
-  wire.resize(wire.size() - 1);  // Länge sagt 512, es sind 511 da
+  wire.resize(wire.size() - 1);  // The declared length is 512, but only 511 bytes remain.
   CHECK(!parse(wire).has_value());
 }
 TEST(parse_truncated_varint_returns_nullopt) {
-  CHECK(!parse(Bytes{0x08, 0xFF}).has_value());  // Fortsetzungsbit gesetzt, Ende der Daten
+  CHECK(!parse(Bytes{0x08, 0xFF}).has_value());  // Continuation bit is set at end of input.
 }
 TEST(parse_dangling_tag_returns_nullopt) {
   CHECK(!parse(Bytes{0x08}).has_value());
@@ -76,8 +75,8 @@ TEST(parse_dangling_tag_returns_nullopt) {
 }
 TEST(parse_random_garbage_never_crashes) {
   Bytes g{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01};
-  (void)parse(g);  // egal ob nullopt oder Wert: nur kein Absturz / keine Endlosschleife
-  (void)parse(Bytes{0x0A, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F});  // riesige Länge, kaum Daten
+  (void)parse(g);  // Either result is acceptable; the test only requires termination without a crash or infinite loop.
+  (void)parse(Bytes{0x0A, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F});  // Huge declared length with little data.
   CHECK(true);
 }
 TEST(serialize_parse_roundtrip) {

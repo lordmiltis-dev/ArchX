@@ -1,3 +1,4 @@
+// Builds a representative show used by the master tests and sample tools.
 import patchbuilding.ShowBuilder
 import dev.archx.schema.Attribute
 import dev.archx.schema.Precedence
@@ -5,7 +6,7 @@ import dev.archx.schema.Showfile
 
 class ExampleShow: ShowBuilder() {
     // ---------------------------------------------------------------
-// Beispiel: ein Typ, zwei Patches
+// Example fixture type with two patched instances.
 // ---------------------------------------------------------------
 
     fun exampleShow(): Showfile {
